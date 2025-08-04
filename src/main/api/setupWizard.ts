@@ -1,6 +1,16 @@
 import { ipcMain } from 'electron'
 import { setupWizardService } from '../database/services'
 import { ClaudeDetectionManager } from '../detection/ClaudeDetectionManager'
+import { GitInstallationManager } from '../installation/GitInstallationManager'
+import { NodeJsInstallationManager } from '../installation/NodeJsInstallationManager'
+import { ClaudeCodeInstallationManager } from '../installation/ClaudeCodeInstallationManager'
+import {
+  BaseInstallationManager,
+  type InstallationOptions
+} from '../installation/BaseInstallationManager'
+import { RepositoryImportService } from '../services/RepositoryImportService'
+import { gitDetectionService } from '../detection/GitDetectionService'
+import { nodeJsDetectionService } from '../detection/NodeJsDetectionService'
 import type {
   SetupWizardState,
   DetailedEnvironmentStatus,
@@ -8,14 +18,11 @@ import type {
   EnvironmentDetectionRequest,
   EnvironmentDetectionResponse,
   ClaudeConfigValidationRequest,
-  ClaudeConfigValidationResponse
+  ClaudeConfigValidationResponse,
+  InstallationProgress
 } from '../types/setupWizard'
 import { ERROR_CODES } from '../types/setupWizard'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 import * as os from 'os'
-
-const execAsync = promisify(exec)
 
 // 缓存环境检测结果
 const environmentCache = new Map<string, { data: DetailedEnvironmentStatus; timestamp: number }>()
@@ -23,6 +30,17 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
 
 // 互斥锁以防止并发操作
 const operationLocks = new Map<string, Promise<any>>()
+
+// 活动安装管理器
+const activeInstallations = new Map<string, BaseInstallationManager>()
+
+// WebContent引用用于进度通信
+let mainWindow: Electron.BrowserWindow | null = null
+
+// 设置主窗口引用
+export function setMainWindow(window: Electron.BrowserWindow) {
+  mainWindow = window
+}
 
 // 创建带锁的操作
 function withLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
@@ -147,13 +165,33 @@ export function setupSetupWizardHandlers() {
           // Parallel detection for better performance
           const detectionPromises: Promise<any>[] = []
 
-          if (checkGit) detectionPromises.push(detectGit(true).then((result) => ({ git: result })))
-          if (checkNodejs) {
-            detectionPromises.push(detectNodeJs(true).then((result) => ({ nodejs: result })))
-            detectionPromises.push(detectNpm(true).then((result) => ({ npm: result })))
+          if (checkGit) {
+            // 使用新的GitDetectionService
+            detectionPromises.push(
+              gitDetectionService
+                .performComprehensiveDetection()
+                .then((result) => ({ git: convertGitToSoftwareStatus(result) }))
+                .catch(() => ({ git: { installed: false, error: 'Git检测失败' } }))
+            )
           }
-          if (checkClaudeCli)
+          if (checkNodejs) {
+            // 使用新的NodeJsDetectionService
+            detectionPromises.push(
+              nodeJsDetectionService
+                .getDetailedStatus()
+                .then((result) => ({
+                  nodejs: convertNodeJsInstallationToSoftwareStatus(result.installation),
+                  npm: convertNpmToSoftwareStatus(result.installation)
+                }))
+                .catch(() => ({
+                  nodejs: { installed: false, error: 'Node.js检测失败' },
+                  npm: { installed: false, error: 'npm检测失败' }
+                }))
+            )
+          }
+          if (checkClaudeCli) {
             detectionPromises.push(detectClaudeCli(true).then((result) => ({ claudeCli: result })))
+          }
 
           // Add system info
           detectionPromises.push(
@@ -300,37 +338,98 @@ export function setupSetupWizardHandlers() {
     }
   )
 
-  // Clone repository (enhanced placeholder)
+  // Clone repository with real implementation
   ipcMain.handle('setup-wizard-clone-repository', async (_, request) => {
     console.log('Main: setup-wizard-clone-repository called', request)
 
     return withLock('clone-repository', async () => {
       try {
         // Input validation
-        if (!request || !request.url || !request.localPath) {
+        if (!request || !request.url) {
           return createErrorResponse(
-            new Error('Repository URL and local path are required'),
+            new Error('Repository URL is required'),
             ERROR_CODES.VALIDATION_FAILED
           )
         }
 
-        // TODO: Implement repository cloning
-        // This would integrate with the Git detection and cloning services
-        await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate cloning
+        // Create repository import service
+        const repoService = new RepositoryImportService()
 
-        return {
-          success: true,
-          data: {
-            status: 'completed',
-            message: 'Repository cloned successfully',
-            localPath: request.localPath
-          },
-          timestamp: new Date().toISOString()
+        // Set up progress reporting
+        repoService.on('progress', (progress) => {
+          console.log('Repository clone progress:', progress)
+          // You can emit this to the renderer process if needed
+        })
+
+        // Perform repository cloning
+        const result = await repoService.cloneRepository(request)
+
+        if (result.success) {
+          return {
+            success: true,
+            data: {
+              status: 'completed',
+              message: 'Repository cloned and imported successfully',
+              localPath: result.localPath,
+              projectInfo: result.projectInfo
+            },
+            timestamp: new Date().toISOString()
+          }
+        } else {
+          return createErrorResponse(
+            new Error(result.error || 'Repository cloning failed'),
+            ERROR_CODES.CLONE_FAILED
+          )
         }
       } catch (error) {
+        console.error('Repository cloning error:', error)
         return createErrorResponse(error, ERROR_CODES.CLONE_FAILED)
       }
     })
+  })
+
+  // Validate repository URL
+  ipcMain.handle('setup-wizard-validate-repository', async (_, url: string) => {
+    console.log('Main: setup-wizard-validate-repository called', url)
+
+    try {
+      const repoService = new RepositoryImportService()
+      const validation = await repoService.validateRepositoryUrl(url)
+
+      return {
+        success: true,
+        data: validation,
+        timestamp: new Date().toISOString()
+      }
+    } catch (error) {
+      return createErrorResponse(error, ERROR_CODES.VALIDATION_FAILED)
+    }
+  })
+
+  // Import existing project
+  ipcMain.handle('setup-wizard-import-project', async (_, projectPath: string) => {
+    console.log('Main: setup-wizard-import-project called', projectPath)
+
+    try {
+      const repoService = new RepositoryImportService()
+      const result = await repoService.importProject(projectPath)
+
+      if (result.success) {
+        return {
+          success: true,
+          data: result,
+          timestamp: new Date().toISOString()
+        }
+      } else {
+        return createErrorResponse(
+          new Error(result.error || 'Project import failed'),
+          ERROR_CODES.VALIDATION_FAILED
+        )
+      }
+    } catch (error) {
+      console.error('Project import error:', error)
+      return createErrorResponse(error, ERROR_CODES.VALIDATION_FAILED)
+    }
   })
 
   // Complete setup with cleanup
@@ -376,42 +475,139 @@ export function setupSetupWizardHandlers() {
     })
   })
 
-  // Install dependencies (enhanced placeholder)
-  ipcMain.handle('setup-wizard-install-dependencies', async (_, software: string) => {
-    console.log('Main: setup-wizard-install-dependencies called for', software)
+  // Install dependencies with real installation managers
+  ipcMain.handle(
+    'setup-wizard-install-dependencies',
+    async (_, software: string, options?: any) => {
+      console.log('Main: setup-wizard-install-dependencies called for', software)
 
-    return withLock(`install-${software}`, async () => {
-      try {
-        // Validation
-        const validSoftware = ['git', 'nodejs', 'claude-code']
-        if (!validSoftware.includes(software)) {
+      return withLock(`install-${software}`, async () => {
+        try {
+          // Validation
+          const validSoftware = ['git', 'nodejs', 'claude-code']
+          if (!validSoftware.includes(software)) {
+            return createErrorResponse(
+              new Error(`Unsupported software: ${software}`),
+              ERROR_CODES.VALIDATION_FAILED
+            )
+          }
+
+          // 检查是否已有相同软件的安装正在进行
+          if (activeInstallations.has(software)) {
+            return createErrorResponse(
+              new Error(`${software} 安装已在进行中`),
+              ERROR_CODES.INSTALLATION_FAILED
+            )
+          }
+
+          let installationManager: BaseInstallationManager | null = null
+
+          // 选择对应的安装管理器
+          switch (software) {
+            case 'git':
+              installationManager = new GitInstallationManager()
+              break
+            case 'nodejs':
+              installationManager = new NodeJsInstallationManager(options)
+              break
+            case 'claude-code':
+              installationManager = new ClaudeCodeInstallationManager()
+              break
+            default:
+              return createErrorResponse(
+                new Error(`不支持的软件: ${software}`),
+                ERROR_CODES.VALIDATION_FAILED
+              )
+          }
+
+          if (installationManager) {
+            // 添加到活动安装列表
+            activeInstallations.set(software, installationManager)
+
+            // 设置进度回调 - 通过IPC实时发送到渲染进程
+            const progressCallback = (progress: InstallationProgress) => {
+              console.log(`Installation progress for ${software}:`, progress)
+
+              // 通过IPC发送进度更新到UI
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('setup-wizard-installation-progress', {
+                  software,
+                  progress
+                })
+              }
+            }
+
+            // 监听各种事件
+            installationManager.on('progress', progressCallback)
+            installationManager.on('download-progress', (downloadProgress) => {
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('setup-wizard-download-progress', {
+                  software,
+                  downloadProgress
+                })
+              }
+            })
+
+            try {
+              // 执行安装
+              const result = await installationManager.install(
+                options?.version,
+                options?.installOptions
+              )
+
+              if (result.success) {
+                console.log(`${software} 安装成功完成`)
+
+                // 清理环境缓存
+                clearEnvironmentCache()
+
+                // 发送完成通知
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('setup-wizard-installation-completed', {
+                    software,
+                    result
+                  })
+                }
+
+                return {
+                  success: true,
+                  data: {
+                    installed: true,
+                    message: `${software} 安装完成`,
+                    software,
+                    installPath: result.installPath,
+                    executablePath: result.executablePath,
+                    version: result.installedVersion,
+                    logs: result.logs
+                  },
+                  timestamp: new Date().toISOString()
+                }
+              } else {
+                return createErrorResponse(
+                  new Error(result.error || `${software} 安装失败`),
+                  ERROR_CODES.INSTALLATION_FAILED
+                )
+              }
+            } catch (installError) {
+              console.error(`${software} 安装过程中出错:`, installError)
+              return createErrorResponse(installError, ERROR_CODES.INSTALLATION_FAILED)
+            } finally {
+              // 从活动安装列表中移除
+              activeInstallations.delete(software)
+            }
+          }
+
           return createErrorResponse(
-            new Error(`Unsupported software: ${software}`),
-            ERROR_CODES.VALIDATION_FAILED
+            new Error('无可用的安装管理器'),
+            ERROR_CODES.INSTALLATION_FAILED
           )
+        } catch (error) {
+          console.error(`Installation error for ${software}:`, error)
+          return createErrorResponse(error, ERROR_CODES.INSTALLATION_FAILED)
         }
-
-        // TODO: Implement actual installation logic
-        // This would integrate with the installation managers
-        await new Promise((resolve) => setTimeout(resolve, 3000)) // Simulate installation
-
-        // Clear environment cache after installation
-        clearEnvironmentCache()
-
-        return {
-          success: true,
-          data: {
-            installed: true,
-            message: `${software} installation completed`,
-            software
-          },
-          timestamp: new Date().toISOString()
-        }
-      } catch (error) {
-        return createErrorResponse(error, ERROR_CODES.INSTALLATION_FAILED)
-      }
-    })
-  })
+      })
+    }
+  )
 
   // Check if wizard should be shown
   ipcMain.handle('setup-wizard-should-show', async () => {
@@ -443,6 +639,94 @@ export function setupSetupWizardHandlers() {
     } catch (error) {
       return createErrorResponse(error, ERROR_CODES.UNKNOWN_ERROR)
     }
+  })
+
+  // 取消安装
+  ipcMain.handle('setup-wizard-cancel-installation', async (_, software: string) => {
+    console.log('Main: setup-wizard-cancel-installation called for', software)
+
+    try {
+      const installationManager = activeInstallations.get(software)
+      if (installationManager) {
+        // 尝试取消安装（具体实现需要安装管理器支持）
+        installationManager.removeAllListeners()
+        activeInstallations.delete(software)
+
+        console.log(`${software} 安装已取消`)
+        return {
+          success: true,
+          message: `${software} 安装已取消`,
+          timestamp: new Date().toISOString()
+        }
+      } else {
+        return createErrorResponse(
+          new Error(`没有找到正在安装的 ${software}`),
+          ERROR_CODES.VALIDATION_FAILED
+        )
+      }
+    } catch (error) {
+      return createErrorResponse(error, ERROR_CODES.UNKNOWN_ERROR)
+    }
+  })
+
+  // 获取安装进度
+  ipcMain.handle('setup-wizard-get-installation-progress', async (_, software: string) => {
+    console.log('Main: setup-wizard-get-installation-progress called for', software)
+
+    try {
+      const installationManager = activeInstallations.get(software)
+      const isInstalling = !!installationManager
+
+      return {
+        success: true,
+        data: {
+          isInstalling,
+          software,
+          logs: installationManager?.getLogs() || []
+        },
+        timestamp: new Date().toISOString()
+      }
+    } catch (error) {
+      return createErrorResponse(error, ERROR_CODES.UNKNOWN_ERROR)
+    }
+  })
+
+  // 批量自动安装
+  ipcMain.handle('setup-wizard-batch-install', async (_, softwareList: string[], options?: any) => {
+    console.log('Main: setup-wizard-batch-install called', softwareList)
+
+    return withLock('batch-install', async () => {
+      try {
+        const results: Record<string, any> = {}
+
+        // 按依赖顺序安装：git -> nodejs -> claude-code
+        const sortedSoftware = sortByDependencies(softwareList)
+
+        for (const software of sortedSoftware) {
+          try {
+            console.log(`开始安装 ${software}`)
+            const installResult = await installSingleDependency(software, options?.[software])
+
+            results[software] = installResult
+
+            if (!installResult.success) {
+              console.error(`${software} 安装失败:`, installResult.error)
+              // 继续安装其他软件，不因一个失败而全部停止
+            }
+          } catch (error) {
+            results[software] = createErrorResponse(error, ERROR_CODES.INSTALLATION_FAILED)
+          }
+        }
+
+        return {
+          success: true,
+          data: results,
+          timestamp: new Date().toISOString()
+        }
+      } catch (error) {
+        return createErrorResponse(error, ERROR_CODES.INSTALLATION_FAILED)
+      }
+    })
   })
 
   // Add cache management endpoints
@@ -530,78 +814,93 @@ function clearEnvironmentCache() {
   console.log('Environment detection cache cleared')
 }
 
+// 按依赖顺序排序软件列表
+function sortByDependencies(softwareList: string[]): string[] {
+  const dependencyOrder = ['git', 'nodejs', 'claude-code']
+  return dependencyOrder.filter((software) => softwareList.includes(software))
+}
+
+// 转换检测结果为SoftwareStatus格式
+
+// 转换函数
+function convertGitToSoftwareStatus(gitStatus: any): SoftwareStatus {
+  return {
+    installed: gitStatus.installation?.installed || false,
+    version: gitStatus.installation?.version,
+    path: gitStatus.installation?.gitPath,
+    error: gitStatus.installation?.installed ? undefined : '未安装Git',
+    needsUpdate: gitStatus.compatibility?.updateRecommended || false
+  }
+}
+
+function convertNodeJsInstallationToSoftwareStatus(installation: any): SoftwareStatus {
+  return {
+    installed: installation?.installed || false,
+    version: installation?.version,
+    path: installation?.nodePath,
+    error: installation?.installed ? undefined : '未安装Node.js',
+    needsUpdate: installation?.needsUpdate || false
+  }
+}
+
+function convertNpmToSoftwareStatus(installation: any): SoftwareStatus {
+  return {
+    installed: installation?.npmInstalled || false,
+    version: installation?.npmVersion,
+    path: installation?.npmPath,
+    error: installation?.npmInstalled ? undefined : '未安装npm',
+    needsUpdate: false
+  }
+}
+
+// 单独安装依赖的函数
+async function installSingleDependency(
+  software: string,
+  options?: InstallationOptions
+): Promise<any> {
+  let installer: BaseInstallationManager
+
+  switch (software) {
+    case 'git':
+      installer = new GitInstallationManager()
+      break
+    case 'nodejs':
+      installer = new NodeJsInstallationManager()
+      break
+    case 'claude-code':
+      installer = new ClaudeCodeInstallationManager()
+      break
+    default:
+      return createErrorResponse(
+        new Error(`Unsupported software: ${software}`),
+        ERROR_CODES.VALIDATION_FAILED
+      )
+  }
+
+  // 设置进度监听
+  installer.on('progress', (progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('setup-wizard-installation-progress', {
+        software,
+        progress
+      })
+    }
+  })
+
+  try {
+    const result = await installer.install(undefined, options)
+    return {
+      success: true,
+      data: result,
+      software,
+      timestamp: new Date().toISOString()
+    }
+  } catch (error) {
+    return createErrorResponse(error, ERROR_CODES.INSTALLATION_FAILED)
+  }
+}
+
 // Helper functions for environment detection
-
-async function detectGit(check: boolean): Promise<SoftwareStatus> {
-  if (!check) {
-    return { installed: false }
-  }
-
-  try {
-    const { stdout } = await execAsync('git --version')
-    const versionMatch = stdout.match(/git version (\d+\.\d+\.\d+)/)
-
-    return {
-      installed: true,
-      version: versionMatch ? versionMatch[1] : 'unknown',
-      path: await findExecutablePath('git')
-    }
-  } catch (error) {
-    return {
-      installed: false,
-      error: 'Git not found in PATH'
-    }
-  }
-}
-
-async function detectNodeJs(check: boolean): Promise<SoftwareStatus> {
-  if (!check) {
-    return { installed: false }
-  }
-
-  try {
-    const { stdout } = await execAsync('node --version')
-    const version = stdout.trim().replace('v', '')
-
-    // Check if version is LTS compatible (>= 16)
-    const majorVersion = parseInt(version.split('.')[0])
-    const needsUpdate = majorVersion < 16
-
-    return {
-      installed: true,
-      version,
-      path: await findExecutablePath('node'),
-      needsUpdate
-    }
-  } catch (error) {
-    return {
-      installed: false,
-      error: 'Node.js not found in PATH'
-    }
-  }
-}
-
-async function detectNpm(check: boolean): Promise<SoftwareStatus> {
-  if (!check) {
-    return { installed: false }
-  }
-
-  try {
-    const { stdout } = await execAsync('npm --version')
-    const version = stdout.trim()
-
-    return {
-      installed: true,
-      version,
-      path: await findExecutablePath('npm')
-    }
-  } catch (error) {
-    return {
-      installed: false,
-      error: 'npm not found in PATH'
-    }
-  }
-}
 
 async function detectClaudeCli(check: boolean): Promise<SoftwareStatus> {
   if (!check) {
@@ -630,15 +929,5 @@ async function detectClaudeCli(check: boolean): Promise<SoftwareStatus> {
       installed: false,
       error: 'Error detecting Claude Code CLI'
     }
-  }
-}
-
-async function findExecutablePath(command: string): Promise<string | undefined> {
-  try {
-    const cmd = process.platform === 'win32' ? 'where' : 'which'
-    const { stdout } = await execAsync(`${cmd} ${command}`)
-    return stdout.trim().split('\n')[0]
-  } catch {
-    return undefined
   }
 }

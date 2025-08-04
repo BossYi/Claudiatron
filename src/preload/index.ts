@@ -115,6 +115,12 @@ const api = {
   setupWizardShouldShow: () => ipcRenderer.invoke('setup-wizard-should-show'),
   setupWizardGetProgress: () => ipcRenderer.invoke('setup-wizard-get-progress'),
   setupWizardClearCache: () => ipcRenderer.invoke('setup-wizard-clear-cache'),
+  setupWizardBatchInstall: (softwareList: string[], options?: any) =>
+    ipcRenderer.invoke('setup-wizard-batch-install', softwareList, options),
+  setupWizardValidateRepository: (url: string) =>
+    ipcRenderer.invoke('setup-wizard-validate-repository', url),
+  setupWizardImportProject: (localPath: string) =>
+    ipcRenderer.invoke('setup-wizard-import-project', localPath),
   exportUsageData: (params: any) => ipcRenderer.invoke('export-usage-data', params),
   clearUsageData: (beforeDate?: string) => ipcRenderer.invoke('clear-usage-data', beforeDate),
   getUsageByDateRange: (startDate: string, endDate: string) =>
@@ -274,7 +280,12 @@ const api = {
 
   // Window Controls (using electron-toolkit/utils pattern)
   windowControl: (action: 'min' | 'max' | 'close' | 'show' | 'showInactive') =>
-    ipcRenderer.send('win:invoke', action)
+    ipcRenderer.send('win:invoke', action),
+
+  // Dialog functionality
+  dialog: {
+    showOpenDialog: (options?: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

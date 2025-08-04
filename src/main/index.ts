@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -10,7 +10,7 @@ import { setupStorageHandlers } from './api/storage'
 import { setupUsageHandlers } from './api/usage'
 import { setupHooksHandlers } from './api/hooks'
 import { setupSlashCommandsHandlers } from './api/slashCommands'
-import { setupSetupWizardHandlers } from './api/setupWizard'
+import { setupSetupWizardHandlers, setMainWindow } from './api/setupWizard'
 import { databaseManager } from './database/connection'
 import { processManager } from './process/ProcessManager'
 import { loadShellEnvironment } from './utils/shellEnv'
@@ -93,6 +93,12 @@ app.whenReady().then(async () => {
   setupSlashCommandsHandlers()
   setupSetupWizardHandlers()
 
+  // Setup dialog handlers
+  ipcMain.handle('dialog:showOpenDialog', async (_, options) => {
+    const result = await dialog.showOpenDialog(options)
+    return result
+  })
+
   // Register frameless window IPC for window controls
   optimizer.registerFramelessWindowIpc()
 
@@ -100,6 +106,9 @@ app.whenReady().then(async () => {
 
   // Set the browser window for process manager
   processManager.setBrowserWindow(mainWindow)
+
+  // Set the main window for setup wizard
+  setMainWindow(mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

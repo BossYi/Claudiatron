@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type {
@@ -9,7 +9,7 @@ import type {
   RepositoryConfiguration,
   EnvironmentStatus
 } from '@/types/setupWizard'
-import { WizardStep } from '@/types/setupWizard'
+import { WizardStep, StepStatus } from '@/types/setupWizard'
 
 interface WelcomeStepProps {
   state: SetupWizardState
@@ -29,15 +29,32 @@ interface WelcomeStepProps {
  *
  * 向导的第一步，为用户介绍Claudiatron和设置流程
  */
-export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onNext, onComplete, canProceed }) => {
+export const WelcomeStep: React.FC<WelcomeStepProps> = ({ state, onNext, onComplete }) => {
+  const [isProcessing, setIsProcessing] = useState(false)
+
   // 自动完成此步骤
   useEffect(() => {
     onComplete(WizardStep.WELCOME)
   }, [onComplete])
 
-  const handleGetStarted = () => {
-    if (canProceed) {
-      onNext()
+  const handleGetStarted = async () => {
+    try {
+      setIsProcessing(true)
+
+      // 确保当前步骤已完成
+      const currentStepStatus = state.stepStatus[WizardStep.WELCOME]
+      if (currentStepStatus !== StepStatus.COMPLETED) {
+        onComplete(WizardStep.WELCOME)
+        // 给状态更新一些时间
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+
+      // 调用下一步
+      await onNext()
+    } catch (error) {
+      console.error('Failed to proceed to next step:', error)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -100,11 +117,20 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onNext, onComplete, ca
           <Button
             size="lg"
             onClick={handleGetStarted}
-            disabled={!canProceed}
+            disabled={isProcessing}
             className="flex items-center gap-2 sm:flex-shrink-0"
           >
-            开始设置
-            <ArrowRight className="w-4 h-4" />
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                启动中...
+              </>
+            ) : (
+              <>
+                开始设置
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </Button>
           <p className="text-sm text-muted-foreground text-center sm:text-left sm:max-w-xs">
             此设置向导将引导您完成Claudiatron的初始配置。整个过程大约需要5-10分钟。

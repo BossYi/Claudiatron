@@ -36,7 +36,9 @@ export default tseslint.config(
       'react/prop-types': 'off', // TypeScript 项目不需要 PropTypes
       'react/no-unescaped-entities': 'off', // 禁用未转义实体检查
       'react-hooks/exhaustive-deps': 'off', // 禁用依赖检查，避免过度限制
-      'react-refresh/only-export-components': 'warn' // 降级为警告
+      'react-refresh/only-export-components': 'warn', // 降级为警告
+      'no-case-declarations': 'off',
+      'no-empty': 'off'
     }
   },
   eslintConfigPrettier

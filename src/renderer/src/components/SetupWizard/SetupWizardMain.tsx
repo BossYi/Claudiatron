@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useSetupWizardState } from '@/hooks/useSetupWizardState'
 import { useSetupWizardPersist } from '@/hooks/useSetupWizardPersist'
 import { WizardStep, StepStatus } from '@/types/setupWizard'
-import { cn } from '@/lib/utils'
 
 // 步骤组件导入
 import { WelcomeStep } from './steps/WelcomeStep'
@@ -43,11 +42,7 @@ interface SetupWizardMainProps {
  * - 错误处理和加载状态
  * - 持久化状态管理
  */
-export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({
-  onComplete,
-  onClose,
-  className
-}) => {
+export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({ onComplete, onClose }) => {
   // 状态管理钩子
   const {
     state,

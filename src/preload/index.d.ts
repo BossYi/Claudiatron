@@ -4,6 +4,9 @@ declare global {
   interface Window {
     electron: ElectronAPI & {
       windowControl: (action: 'min' | 'max' | 'close' | 'show' | 'showInactive') => void
+      dialog: {
+        showOpenDialog: (options?: any) => Promise<any>
+      }
     }
     api: {
       // Setup Wizard APIs
@@ -26,6 +29,16 @@ declare global {
       setupWizardShouldShow: () => Promise<{ success: boolean; data?: boolean; error?: string }>
       setupWizardGetProgress: () => Promise<{ success: boolean; data?: any; error?: string }>
       setupWizardClearCache: () => Promise<{ success: boolean; message?: string; error?: string }>
+      setupWizardBatchInstall: (
+        softwareList: string[],
+        options?: any
+      ) => Promise<{ success: boolean; data?: any; error?: string }>
+      setupWizardValidateRepository: (
+        url: string
+      ) => Promise<{ success: boolean; data?: any; error?: string }>
+      setupWizardImportProject: (
+        localPath: string
+      ) => Promise<{ success: boolean; data?: any; error?: string }>
 
       // Other APIs (placeholder to avoid type errors)
       [key: string]: any
