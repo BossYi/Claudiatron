@@ -178,7 +178,7 @@ export class NodeJsDetectionService extends EventEmitter {
   /**
    * 检测Node.js安装情况
    */
-  private async detectNodeJsInstallation(): Promise<NodeJsInstallationInfo> {
+  public async detectNodeJsInstallation(): Promise<NodeJsInstallationInfo> {
     const result: NodeJsInstallationInfo = {
       installed: false
     }
@@ -204,17 +204,9 @@ export class NodeJsDetectionService extends EventEmitter {
         try {
           const { stdout: npmVersion } = await execAsync('npm --version')
           result.npmVersion = npmVersion.trim()
-          result.npmPath = await this.findExecutablePath('npm')
-
-          // 获取npm全局包路径
-          try {
-            const { stdout: globalPath } = await execAsync('npm config get prefix')
-            result.globalPackagesPath = globalPath.trim()
-          } catch (error) {
-            console.log('Failed to get npm global path:', error)
-          }
+          console.log(`npm version detected: ${result.npmVersion}`)
         } catch (npmError) {
-          console.log('npm detection failed:', npmError)
+          console.log('npm not detected or not available')
         }
 
         // 3. 获取安装位置

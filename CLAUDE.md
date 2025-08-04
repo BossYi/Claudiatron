@@ -105,6 +105,7 @@ src/renderer/src/lib/api/
 ```
 
 **重构收益**:
+
 - **可维护性**: 每个模块平均100-200行，易于理解和修改
 - **类型安全**: 统一的TypeScript类型管理，零类型错误
 - **向后兼容**: 保持原有API接口不变，无需修改现有代码
@@ -218,6 +219,7 @@ ipcMain.handle('create-claude-session', async (_, projectPath) => { ... });
 - **使用 React hooks 管理异步状态**
 
 **API模块使用示例**:
+
 ```typescript
 // 直接使用统一API入口 (推荐)
 import { api } from '@/lib/api'
@@ -264,7 +266,7 @@ import type { Project, Agent } from '@/lib/api'
 - **不要在渲染进程中** 直接访问 Node.js API
 - **不要绕过 IPC** 进行跨进程通信
 - **不要在主进程中** 执行长时间运行的同步操作
-- **不要破坏API模块化结构**: 
+- **不要破坏API模块化结构**:
   - 不要在 `api.ts` 主入口文件中直接添加新的API实现
   - 不要跨模块直接调用其他模块的内部方法
   - 不要绕过 `ApiClient` 基类直接实现API调用
@@ -276,12 +278,14 @@ import type { Project, Agent } from '@/lib/api'
 当需要添加新的API功能时，请遵循以下步骤：
 
 1. **创建类型定义** (如需要):
+
    ```bash
    # 在 src/renderer/src/lib/api/types/ 中添加类型文件
    # 然后在 types/index.ts 中导出
    ```
 
 2. **创建API模块**:
+
    ```typescript
    // src/renderer/src/lib/api/modules/newFeature.ts
    import { ApiClient } from '../utils/apiClient'
@@ -298,13 +302,14 @@ import type { Project, Agent } from '@/lib/api'
    ```
 
 3. **在主入口中注册**:
+
    ```typescript
    // src/renderer/src/lib/api.ts
    import { NewFeatureApi } from './api/modules/newFeature'
-   
+
    export const api = {
      // ... 现有方法
-     someMethod: NewFeatureApi.someMethod.bind(NewFeatureApi),
+     someMethod: NewFeatureApi.someMethod.bind(NewFeatureApi)
    }
    ```
 

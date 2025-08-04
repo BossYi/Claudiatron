@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Key, Eye, EyeOff, CheckCircle, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -40,7 +40,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
 }) => {
   const [apiKey, setApiKey] = useState(state.userData.apiConfiguration?.apiKey || '')
   const [apiUrl, setApiUrl] = useState(
-    state.userData.apiConfiguration?.apiUrl || 'https://api.anthropic.com'
+    state.userData.apiConfiguration?.apiUrl || 'https://fc-api.keep-learn.top'
   )
   const [showApiKey, setShowApiKey] = useState(false)
   const [validating, setValidating] = useState(false)
@@ -50,21 +50,41 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     apiInfo?: any
   } | null>(null)
 
+  // 使用 ref 来跟踪上次验证的输入，防止重复验证
+  const lastValidatedRef = useRef<{ apiKey: string; apiUrl: string } | null>(null)
+  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   // 验证API配置
   const validateConfiguration = useCallback(async () => {
-    if (!apiKey.trim()) {
+    const currentKey = apiKey.trim()
+    const currentUrl = apiUrl.trim()
+
+    if (!currentKey) {
       onError(WizardStep.CLAUDE_CONFIGURATION, 'API密钥不能为空')
       return false
+    }
+
+    // 检查是否已经验证过相同的输入
+    if (
+      lastValidatedRef.current &&
+      lastValidatedRef.current.apiKey === currentKey &&
+      lastValidatedRef.current.apiUrl === currentUrl
+    ) {
+      console.log('Skipping validation: same input as last time')
+      return validationResult?.valid || false
     }
 
     setValidating(true)
     onClearError(WizardStep.CLAUDE_CONFIGURATION)
 
     try {
+      // 记录当前验证的输入
+      lastValidatedRef.current = { apiKey: currentKey, apiUrl: currentUrl }
+
       // 这里应该调用实际的验证API
       // const result = await window.api.setupWizardValidateClaudeConfig({
-      //   apiUrl,
-      //   apiKey
+      //   apiUrl: currentUrl,
+      //   apiKey: currentKey
       // })
 
       // 模拟验证过程
@@ -72,9 +92,9 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
 
       // 模拟验证结果
       const mockResult = {
-        valid: apiKey.startsWith('sk-'),
-        error: apiKey.startsWith('sk-') ? undefined : 'API密钥格式无效',
-        apiInfo: apiKey.startsWith('sk-')
+        valid: currentKey.startsWith('sk-'),
+        error: currentKey.startsWith('sk-') ? undefined : 'API密钥格式无效',
+        apiInfo: currentKey.startsWith('sk-')
           ? {
               version: '2023-06-01',
               capabilities: ['text-generation', 'code-completion']
@@ -86,8 +106,8 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
 
       if (mockResult.valid) {
         updateApiConfiguration({
-          apiKey,
-          apiUrl,
+          apiKey: currentKey,
+          apiUrl: currentUrl,
           lastValidated: new Date().toISOString()
         })
         onComplete(WizardStep.CLAUDE_CONFIGURATION)
@@ -106,31 +126,82 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     }
 
     return false
-  }, [apiKey, apiUrl, onError, onClearError, updateApiConfiguration, onComplete])
+  }, [
+    apiKey,
+    apiUrl,
+    onError,
+    onClearError,
+    updateApiConfiguration,
+    onComplete,
+    validationResult?.valid
+  ])
 
   // 处理API密钥变化
   const handleApiKeyChange = (value: string) => {
     setApiKey(value)
     setValidationResult(null)
+    // 清除之前的验证缓存，因为输入已变化
+    lastValidatedRef.current = null
   }
 
   // 处理API URL变化
   const handleApiUrlChange = (value: string) => {
     setApiUrl(value)
     setValidationResult(null)
+    // 清除之前的验证缓存，因为输入已变化
+    lastValidatedRef.current = null
   }
 
-  // 自动验证配置
-  useEffect(() => {
-    if (apiKey && apiUrl) {
-      const timeoutId = setTimeout(() => {
-        validateConfiguration()
-      }, 1000)
+  // 创建稳定的验证函数引用，避免useEffect重复执行
+  const triggerValidation = useCallback(() => {
+    if (!validating && apiKey.trim() && apiUrl.trim()) {
+      // 直接调用验证逻辑，避免依赖 validateConfiguration
+      const currentKey = apiKey.trim()
+      const currentUrl = apiUrl.trim()
 
-      return () => clearTimeout(timeoutId)
+      // 检查是否已经验证过相同的输入
+      if (
+        lastValidatedRef.current &&
+        lastValidatedRef.current.apiKey === currentKey &&
+        lastValidatedRef.current.apiUrl === currentUrl
+      ) {
+        return
+      }
+
+      validateConfiguration()
     }
-    return undefined
-  }, [apiKey, apiUrl, validateConfiguration])
+  }, [validating, apiKey, apiUrl])
+
+  // 自动验证配置 - 使用更稳定的依赖管理
+  useEffect(() => {
+    // 清除之前的定时器
+    if (validationTimeoutRef.current) {
+      clearTimeout(validationTimeoutRef.current)
+    }
+
+    if (apiKey.trim() && apiUrl.trim()) {
+      // 设置防抖延时验证
+      validationTimeoutRef.current = setTimeout(() => {
+        triggerValidation()
+      }, 1000)
+    }
+
+    // 清理函数
+    return () => {
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current)
+      }
+    }
+  }, [apiKey, apiUrl, triggerValidation])
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto">
@@ -144,9 +215,9 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
         <div className="flex items-start gap-3">
           <Key className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
           <div>
-            <h2 className="text-lg font-semibold">Claude API 配置</h2>
+            <h2 className="text-lg font-semibold">Claude Code API 配置</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              配置您的Claude API密钥以连接到Anthropic服务
+              配置您的Claude API密钥以连接到Claude Code服务
             </p>
           </div>
         </div>
@@ -164,7 +235,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
                 type="url"
                 value={apiUrl}
                 onChange={(e) => handleApiUrlChange(e.target.value)}
-                placeholder="https://api.anthropic.com"
+                placeholder="https://fc-api.keep-learn.top"
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
@@ -210,7 +281,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
                   className="h-auto p-0 text-xs"
                   onClick={() => {
                     // 打开官方网站
-                    window.open('https://console.anthropic.com/', '_blank')
+                    window.open('https://fc.keep-learn.top', '_blank')
                   }}
                 >
                   获取API密钥 <ExternalLink className="w-3 h-3 ml-1" />

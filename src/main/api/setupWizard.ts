@@ -24,9 +24,101 @@ import type {
 import { ERROR_CODES } from '../types/setupWizard'
 import * as os from 'os'
 
+// Import shutdown flag
+import { isShuttingDown } from '../index'
+
+// Import required modules for Claude settings
+import { homedir } from 'os'
+import { join } from 'path'
+import { promises as fs } from 'fs'
+
+// Utility function to check if app is shutting down
+function checkShutdownState(operationName: string): void {
+  if (isShuttingDown) {
+    console.log(`[SetupWizard] Rejecting ${operationName} - application is shutting down`)
+    throw new Error(`Operation rejected: Application is shutting down`)
+  }
+}
+
+/**
+ * Format API configuration for Claude Code settings.json
+ * Creates the required format for ~/.claude/settings.json
+ */
+function formatClaudeSettings(apiUrl: string, apiKey: string): any {
+  return {
+    env: {
+      ANTHROPIC_BASE_URL: apiUrl,
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
+    },
+    apiKeyHelper: `echo '${apiKey}'`
+  }
+}
+
+/**
+ * Save Claude configuration to ~/.claude/settings.json
+ * Ensures the directory exists and writes the formatted settings
+ */
+async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<void> {
+  const claudeDir = join(homedir(), '.claude')
+  const claudeSettingsPath = join(claudeDir, 'settings.json')
+  
+  try {
+    console.log(`Saving Claude configuration to: ${claudeSettingsPath}`)
+    
+    // Validate inputs
+    if (!apiUrl || !apiKey) {
+      throw new Error('API URL and API key are required')
+    }
+    
+    // Ensure .claude directory exists
+    try {
+      await fs.mkdir(claudeDir, { recursive: true })
+      console.log(`Created/verified Claude directory: ${claudeDir}`)
+    } catch (dirError) {
+      const errorMsg = dirError instanceof Error ? dirError.message : String(dirError)
+      throw new Error(`Failed to create ~/.claude directory: ${errorMsg}`)
+    }
+    
+    // Format settings according to Claude Code requirements
+    const settings = formatClaudeSettings(apiUrl, apiKey)
+    console.log('Formatted Claude settings:', JSON.stringify(settings, null, 2))
+    
+    // Write settings to file with proper error handling
+    try {
+      await fs.writeFile(claudeSettingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+      console.log('Successfully saved Claude configuration to ~/.claude/settings.json')
+    } catch (fileError) {
+      const errorMsg = fileError instanceof Error ? fileError.message : String(fileError)
+      throw new Error(`Failed to write settings file: ${errorMsg}`)
+    }
+    
+    // Verify the file was written correctly
+    try {
+      const writtenContent = await fs.readFile(claudeSettingsPath, 'utf-8')
+      const parsedContent = JSON.parse(writtenContent)
+      
+      // Basic validation of written content
+      if (!parsedContent.env?.ANTHROPIC_BASE_URL || !parsedContent.apiKeyHelper) {
+        throw new Error('Verification failed: written content is incomplete')
+      }
+      
+      console.log('Verification successful: settings file written correctly')
+    } catch (verifyError) {
+      const errorMsg = verifyError instanceof Error ? verifyError.message : String(verifyError)
+      console.warn(`Settings file verification failed: ${errorMsg}`)
+      // Don't throw here as the main write succeeded
+    }
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Failed to save Claude configuration:', errorMessage)
+    throw new Error(`Failed to save Claude configuration to ~/.claude/settings.json: ${errorMessage}`)
+  }
+}
+
 // 缓存环境检测结果
 const environmentCache = new Map<string, { data: DetailedEnvironmentStatus; timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
+const CACHE_DURATION = 60 * 1000 // 1分钟缓存
 
 // 互斥锁以防止并发操作
 const operationLocks = new Map<string, Promise<any>>()
@@ -110,6 +202,8 @@ export function setupSetupWizardHandlers() {
 
     return withLock('save-state', async () => {
       try {
+        checkShutdownState('setup-wizard-save-state')
+
         // Validate state before saving
         if (!validateStateIntegrity(state)) {
           throw new Error('Invalid state data cannot be saved')
@@ -179,14 +273,30 @@ export function setupSetupWizardHandlers() {
             detectionPromises.push(
               nodeJsDetectionService
                 .getDetailedStatus()
-                .then((result) => ({
-                  nodejs: convertNodeJsInstallationToSoftwareStatus(result.installation),
-                  npm: convertNpmToSoftwareStatus(result.installation)
-                }))
-                .catch(() => ({
-                  nodejs: { installed: false, error: 'Node.js检测失败' },
-                  npm: { installed: false, error: 'npm检测失败' }
-                }))
+                .then((result) => {
+                  console.log('NodeJS detection result:', result.installation)
+                  return {
+                    nodejs: convertNodeJsInstallationToSoftwareStatus(result.installation),
+                    npm: convertNpmToSoftwareStatus(result.installation)
+                  }
+                })
+                .catch((error) => {
+                  console.error('NodeJS detection failed completely:', error)
+                  // 即使整体检测失败，也尝试单独检测Node.js和npm
+                  return nodeJsDetectionService
+                    .detectNodeJsInstallation()
+                    .then((installation) => {
+                      console.log('Fallback NodeJS detection result:', installation)
+                      return {
+                        nodejs: convertNodeJsInstallationToSoftwareStatus(installation),
+                        npm: convertNpmToSoftwareStatus(installation)
+                      }
+                    })
+                    .catch(() => ({
+                      nodejs: { installed: false, error: 'Node.js检测失败' },
+                      npm: { installed: false, error: 'npm检测失败' }
+                    }))
+                })
             )
           }
           if (checkClaudeCli) {
@@ -315,15 +425,54 @@ export function setupSetupWizardHandlers() {
           }
 
           // Save configuration if valid
+          let wizardStateSaved = false
+          let claudeSettingsSaved = false
+          let saveErrors: string[] = []
+
+          // Try to save to wizard state (for UI management)
           try {
             await setupWizardService.saveApiConfiguration({
               apiUrl: request.apiUrl,
               apiKey: request.apiKey,
               lastValidated: new Date().toISOString()
             })
-          } catch (saveError) {
-            console.warn('Failed to save API configuration:', saveError)
-            // Don't fail validation if saving fails
+            wizardStateSaved = true
+            console.log('Successfully saved configuration to wizard state')
+          } catch (wizardError) {
+            const errorMsg = wizardError instanceof Error ? wizardError.message : String(wizardError)
+            console.error('Failed to save to wizard state:', errorMsg)
+            saveErrors.push(`Wizard state: ${errorMsg}`)
+          }
+
+          // Try to save to ~/.claude/settings.json (for Claude Code)
+          try {
+            await saveClaudeConfiguration(request.apiUrl, request.apiKey)
+            claudeSettingsSaved = true
+            console.log('Successfully saved configuration to ~/.claude/settings.json')
+          } catch (claudeError) {
+            const errorMsg = claudeError instanceof Error ? claudeError.message : String(claudeError)
+            console.error('Failed to save to ~/.claude/settings.json:', errorMsg)
+            saveErrors.push(`Claude settings: ${errorMsg}`)
+          }
+
+          // Determine response based on save results
+          if (!claudeSettingsSaved) {
+            // Claude settings save is critical - without it Claude Code won't work
+            const response: ClaudeConfigValidationResponse = {
+              valid: false,
+              error: `Configuration validation succeeded but failed to save to ~/.claude/settings.json: ${saveErrors.join('; ')}`
+            }
+            return { success: true, data: response }
+          }
+
+          if (!wizardStateSaved) {
+            // Wizard state save failed but Claude settings succeeded
+            // This is less critical - show warning but continue
+            console.warn(`Configuration saved to ~/.claude/settings.json but wizard state save failed: ${saveErrors.join('; ')}`)
+          }
+
+          if (wizardStateSaved && claudeSettingsSaved) {
+            console.log('Claude configuration saved successfully to both locations')
           }
 
           return {
@@ -844,11 +993,15 @@ function convertNodeJsInstallationToSoftwareStatus(installation: any): SoftwareS
 }
 
 function convertNpmToSoftwareStatus(installation: any): SoftwareStatus {
+  // 基于npmVersion的存在来判断npm是否安装，而不是依赖不存在的npmInstalled字段
+  console.log('installation', installation)
+  const isInstalled = !!installation?.npmVersion
+
   return {
-    installed: installation?.npmInstalled || false,
+    installed: isInstalled,
     version: installation?.npmVersion,
     path: installation?.npmPath,
-    error: installation?.npmInstalled ? undefined : '未安装npm',
+    error: isInstalled ? undefined : '未安装npm',
     needsUpdate: false
   }
 }

@@ -6,8 +6,14 @@ import { Agent, AgentRun, AppSettings } from './entities'
 
 class DatabaseManager {
   private dataSource: DataSource | null = null
+  private isShuttingDown: boolean = false
 
   async initialize(): Promise<DataSource> {
+    // Prevent re-initialization during shutdown
+    if (this.isShuttingDown) {
+      throw new Error('DatabaseManager is shutting down, cannot initialize')
+    }
+    
     if (this.dataSource && this.dataSource.isInitialized) {
       return this.dataSource
     }
@@ -41,6 +47,11 @@ class DatabaseManager {
   }
 
   async getDataSource(): Promise<DataSource> {
+    // Prevent access during shutdown
+    if (this.isShuttingDown) {
+      throw new Error('DatabaseManager is shutting down, cannot access data source')
+    }
+    
     if (!this.dataSource || !this.dataSource.isInitialized) {
       return await this.initialize()
     }
@@ -48,10 +59,22 @@ class DatabaseManager {
   }
 
   async close(): Promise<void> {
+    console.log('[DatabaseManager] Starting database shutdown...')
+    this.isShuttingDown = true
+    
     if (this.dataSource && this.dataSource.isInitialized) {
-      await this.dataSource.destroy()
-      this.dataSource = null
-      console.log('Database connection closed')
+      try {
+        console.log('[DatabaseManager] Destroying database connection...')
+        await this.dataSource.destroy()
+        console.log('[DatabaseManager] Database connection destroyed successfully')
+      } catch (error) {
+        console.error('[DatabaseManager] Error destroying database connection:', error)
+      } finally {
+        this.dataSource = null
+        console.log('[DatabaseManager] Database connection closed')
+      }
+    } else {
+      console.log('[DatabaseManager] No active database connection to close')
     }
   }
 

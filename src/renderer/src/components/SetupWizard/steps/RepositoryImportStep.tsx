@@ -74,6 +74,7 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   } | null>(null)
   const [urlValidating, setUrlValidating] = useState(false)
   const [cloneProgress, setCloneProgress] = useState<RepositoryCloneProgress | null>(null)
+  const [folderSelectError, setFolderSelectError] = useState<string | null>(null)
 
   // 验证仓库URL
   const validateRepositoryUrl = useCallback(async (url: string) => {
@@ -234,9 +235,12 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
 
   // 选择本地文件夹
   const selectFolder = async (type: 'clone' | 'local' | 'create') => {
+    // 清除之前的错误
+    setFolderSelectError(null)
+
     try {
       // 使用 Electron 的文件对话框
-      const result = await window.electron?.dialog?.showOpenDialog({
+      const result = await window.electron.dialog.showOpenDialog({
         properties: ['openDirectory'],
         title: `选择${type === 'clone' ? '克隆目标' : type === 'local' ? '项目' : '创建'}目录`
       })
@@ -258,20 +262,8 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
       }
     } catch (error) {
       console.error('Failed to select folder:', error)
-      // 如果 Electron API 不可用，使用默认路径
-      const defaultPath = '/Users/user/Projects'
-
-      switch (type) {
-        case 'clone':
-          setClonePath(defaultPath)
-          break
-        case 'local':
-          setLocalPath(defaultPath)
-          break
-        case 'create':
-          setProjectPath(defaultPath)
-          break
-      }
+      const errorMessage = error instanceof Error ? error.message : '文件选择失败'
+      setFolderSelectError(`无法打开文件选择对话框: ${errorMessage}`)
     }
   }
 
@@ -361,7 +353,10 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     <Input
                       id="clonePath"
                       value={clonePath}
-                      onChange={(e) => setClonePath(e.target.value)}
+                      onChange={(e) => {
+                        setClonePath(e.target.value)
+                        setFolderSelectError(null)
+                      }}
                       placeholder="/Users/username/Projects"
                       className="flex-1"
                     />
@@ -377,7 +372,7 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     id="cloneBranch"
                     value={cloneBranch}
                     onChange={(e) => setCloneBranch(e.target.value)}
-                    placeholder="main"
+                    placeholder="master"
                   />
                 </div>
               </CardContent>
@@ -397,7 +392,10 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     <Input
                       id="localPath"
                       value={localPath}
-                      onChange={(e) => setLocalPath(e.target.value)}
+                      onChange={(e) => {
+                        setLocalPath(e.target.value)
+                        setFolderSelectError(null)
+                      }}
                       placeholder="/Users/username/my-project"
                       className="flex-1"
                     />
@@ -434,7 +432,10 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     <Input
                       id="projectPath"
                       value={projectPath}
-                      onChange={(e) => setProjectPath(e.target.value)}
+                      onChange={(e) => {
+                        setProjectPath(e.target.value)
+                        setFolderSelectError(null)
+                      }}
                       placeholder="/Users/username/Projects"
                       className="flex-1"
                     />
@@ -574,6 +575,24 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     </div>
                   </div>
                 )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 文件选择错误显示 */}
+        {folderSelectError && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-red-800 dark:text-red-200">文件选择失败</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">{folderSelectError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-500 mt-2">
+                    您可以尝试手动输入路径，或联系技术支持。
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}

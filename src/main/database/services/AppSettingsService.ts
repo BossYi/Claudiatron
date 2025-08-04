@@ -2,6 +2,17 @@ import { Repository } from 'typeorm'
 import { AppSettings } from '../entities/AppSettings'
 import { getAppSettingsRepository } from '../connection'
 
+// Import shutdown flag
+import { isShuttingDown } from '../../index'
+
+// Utility function to check if app is shutting down
+function checkShutdownState(operationName: string): void {
+  if (isShuttingDown) {
+    console.log(`[AppSettingsService] Rejecting ${operationName} - application is shutting down`)
+    throw new Error(`Operation rejected: Application is shutting down`)
+  }
+}
+
 export class AppSettingsService {
   private async getRepository(): Promise<Repository<AppSettings>> {
     return await getAppSettingsRepository()
@@ -21,6 +32,8 @@ export class AppSettingsService {
    * Set a setting value
    */
   async setSetting(key: string, value: string): Promise<AppSettings> {
+    checkShutdownState('setSetting')
+    
     const repository = await this.getRepository()
 
     let setting = await repository.findOne({ where: { key } })

@@ -8,6 +8,17 @@ import type {
   RepositoryConfiguration
 } from '../../types/setupWizard'
 
+// Import shutdown flag
+import { isShuttingDown } from '../../index'
+
+// Utility function to check if app is shutting down
+function checkShutdownState(operationName: string): void {
+  if (isShuttingDown) {
+    console.log(`[SetupWizardService] Rejecting ${operationName} - application is shutting down`)
+    throw new Error(`Operation rejected: Application is shutting down`)
+  }
+}
+
 /**
  * Service for managing Setup Wizard state persistence
  */
@@ -38,6 +49,8 @@ export class SetupWizardService {
    * Save the wizard state
    */
   async saveState(state: SetupWizardState): Promise<void> {
+    checkShutdownState('saveState')
+    
     try {
       const persistData: SetupWizardPersistData = {
         state,

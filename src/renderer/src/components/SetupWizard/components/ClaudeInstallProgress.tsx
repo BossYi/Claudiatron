@@ -196,7 +196,7 @@ export const ClaudeInstallProgress: React.FC<ClaudeInstallProgressProps> = ({
           {/* 重要提示 */}
           <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>注意：</strong> Claude CLI 需要有效的 Anthropic API 密钥才能正常工作。
+              <strong>注意：</strong> Claude CLI 需要有效的 Claude Code API 密钥才能正常工作。
               安装完成后，请确保配置您的 API 密钥。
             </p>
           </div>

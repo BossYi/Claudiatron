@@ -276,15 +276,6 @@ const api = {
 
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel)
-  },
-
-  // Window Controls (using electron-toolkit/utils pattern)
-  windowControl: (action: 'min' | 'max' | 'close' | 'show' | 'showInactive') =>
-    ipcRenderer.send('win:invoke', action),
-
-  // Dialog functionality
-  dialog: {
-    showOpenDialog: (options?: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
   }
 }
 
@@ -293,14 +284,28 @@ const api = {
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('electron', {
+      ...electronAPI,
+      windowControl: (action: 'min' | 'max' | 'close' | 'show' | 'showInactive') =>
+        ipcRenderer.send('win:invoke', action),
+      dialog: {
+        showOpenDialog: (options?: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+      }
+    })
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.electron = electronAPI
+  window.electron = {
+    ...electronAPI,
+    windowControl: (action: 'min' | 'max' | 'close' | 'show' | 'showInactive') =>
+      ipcRenderer.send('win:invoke', action),
+    dialog: {
+      showOpenDialog: (options?: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+    }
+  }
   // @ts-ignore (define in dts)
   window.api = api
 }

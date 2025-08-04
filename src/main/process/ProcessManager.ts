@@ -47,6 +47,7 @@ export class ProcessManager extends EventEmitter {
   private processes: Map<number, ProcessHandle> = new Map()
   private nextId: number = 1000000 // Start at high number to avoid conflicts
   private browserWindow: BrowserWindow | null = null
+  private processIntervals: Map<number, NodeJS.Timeout> = new Map() // Track intervals for cleanup
 
   constructor() {
     super()
@@ -345,11 +346,11 @@ export class ProcessManager extends EventEmitter {
     childProcess.on('spawn', () => {
       console.log('[ProcessManager] Process spawned event for runId:', runId)
 
-      // Set up a periodic status check
+      // Set up a periodic status check and track it for cleanup
       const statusCheckInterval = setInterval(() => {
         if (childProcess.killed) {
           console.log('[ProcessManager] Process is killed for runId:', runId)
-          clearInterval(statusCheckInterval)
+          this.clearProcessIntervals(runId)
         } else {
           console.log(
             '[ProcessManager] Process still running for runId:',
@@ -360,9 +361,12 @@ export class ProcessManager extends EventEmitter {
         }
       }, 10000) // Check every 10 seconds
 
+      // Track the interval for cleanup
+      this.processIntervals.set(runId, statusCheckInterval)
+
       // Clear interval when process ends
       childProcess.on('close', () => {
-        clearInterval(statusCheckInterval)
+        this.clearProcessIntervals(runId)
       })
     })
 
@@ -505,15 +509,23 @@ export class ProcessManager extends EventEmitter {
 
     try {
       if (process && !handle.isFinished) {
-        // Try graceful termination first
+        // Clear any existing intervals for this process
+        this.clearProcessIntervals(runId)
+
+        // Try graceful termination first, but with shorter timeout
         if (process.pid) {
+          console.log(`[ProcessManager] Sending SIGTERM to process ${runId} (PID: ${process.pid})`)
           await new Promise<void>((resolve, reject) => {
             treeKill(process.pid!, 'SIGTERM', (error) => {
               if (error) {
                 console.warn(`Failed to send SIGTERM to process ${runId}:`, error)
-                // Try SIGKILL as fallback
+                // Try SIGKILL as fallback immediately
+                console.log(
+                  `[ProcessManager] Sending SIGKILL to process ${runId} (PID: ${process.pid})`
+                )
                 treeKill(process.pid!, 'SIGKILL', (killError) => {
                   if (killError) {
+                    console.error(`Failed to send SIGKILL to process ${runId}:`, killError)
                     reject(killError)
                   } else {
                     resolve()
@@ -526,19 +538,27 @@ export class ProcessManager extends EventEmitter {
           })
         }
 
-        // Wait for process to exit (with timeout)
+        // Wait for process to exit with much shorter timeout
         try {
           await Promise.race([
             process,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000)) // Reduced from 5000 to 2000
           ])
         } catch (timeoutError) {
-          console.warn(`Process ${runId} didn't exit within timeout, force killing`)
+          console.warn(`Process ${runId} didn't exit within 2s timeout, force killing`)
           if (process.pid) {
-            treeKill(process.pid, 'SIGKILL')
+            console.log(`[ProcessManager] Force killing process tree for PID: ${process.pid}`)
+            try {
+              treeKill(process.pid, 'SIGKILL')
+            } catch (killError) {
+              console.error(`Failed to force kill process ${runId}:`, killError)
+            }
           }
         }
       }
+
+      // Remove event listeners to prevent memory leaks
+      this.removeProcessListeners(runId)
 
       // Mark as finished and remove from registry
       handle.isFinished = true
@@ -550,6 +570,9 @@ export class ProcessManager extends EventEmitter {
       return true
     } catch (error) {
       console.error(`Error killing process ${runId}:`, error)
+      // Even if there's an error, mark as finished and remove from registry
+      handle.isFinished = true
+      this.processes.delete(runId)
       return false
     }
   }
@@ -775,6 +798,104 @@ export class ProcessManager extends EventEmitter {
     }
 
     return { total, agents, claude }
+  }
+
+  /**
+   * Clear process intervals for a specific runId
+   */
+  private clearProcessIntervals(runId: number): void {
+    const interval = this.processIntervals.get(runId)
+    if (interval) {
+      clearInterval(interval)
+      this.processIntervals.delete(runId)
+      console.log(`[ProcessManager] Cleared interval for runId: ${runId}`)
+    }
+  }
+
+  /**
+   * Remove all event listeners for a process to prevent memory leaks
+   */
+  private removeProcessListeners(runId: number): void {
+    const handle = this.processes.get(runId)
+    if (handle && handle.process) {
+      try {
+        // Remove all listeners from the process
+        handle.process.removeAllListeners()
+        if (handle.process.stdout) {
+          handle.process.stdout.removeAllListeners()
+        }
+        if (handle.process.stderr) {
+          handle.process.stderr.removeAllListeners()
+        }
+        console.log(`[ProcessManager] Removed all listeners for runId: ${runId}`)
+      } catch (error) {
+        console.error(`[ProcessManager] Error removing listeners for runId ${runId}:`, error)
+      }
+    }
+  }
+
+  /**
+   * Force cleanup all processes and resources - used during app shutdown
+   */
+  async forceCleanupAll(): Promise<void> {
+    console.log('[ProcessManager] Starting force cleanup of all processes and resources')
+
+    // Clear all intervals first
+    for (const [runId, interval] of this.processIntervals.entries()) {
+      clearInterval(interval)
+      console.log(`[ProcessManager] Force cleared interval for runId: ${runId}`)
+    }
+    this.processIntervals.clear()
+
+    // Get all process PIDs for force killing
+    const activePids: number[] = []
+    for (const handle of this.processes.values()) {
+      if (handle.process && handle.process.pid && !handle.isFinished) {
+        activePids.push(handle.process.pid)
+      }
+    }
+
+    // Remove all event listeners to prevent memory leaks
+    for (const [runId] of this.processes.entries()) {
+      this.removeProcessListeners(runId)
+    }
+
+    // Force kill all active processes
+    const killPromises = activePids.map(async (pid) => {
+      try {
+        console.log(`[ProcessManager] Force killing PID: ${pid}`)
+        await new Promise<void>((resolve) => {
+          treeKill(pid, 'SIGKILL', (error) => {
+            if (error) {
+              console.error(`[ProcessManager] Error force killing PID ${pid}:`, error)
+            } else {
+              console.log(`[ProcessManager] Successfully force killed PID: ${pid}`)
+            }
+            resolve() // Always resolve to not block cleanup
+          })
+        })
+      } catch (error) {
+        console.error(`[ProcessManager] Exception force killing PID ${pid}:`, error)
+      }
+    })
+
+    // Wait for all kills with timeout
+    try {
+      await Promise.race([
+        Promise.allSettled(killPromises),
+        new Promise((resolve) => setTimeout(resolve, 3000)) // 3 second timeout
+      ])
+    } catch (error) {
+      console.error('[ProcessManager] Error during force cleanup:', error)
+    }
+
+    // Clear the processes map
+    this.processes.clear()
+
+    // Remove all event emitter listeners
+    this.removeAllListeners()
+
+    console.log('[ProcessManager] Force cleanup completed')
   }
 }
 

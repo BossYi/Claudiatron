@@ -129,26 +129,128 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Global cleanup flag to prevent multiple cleanup attempts
+let isCleaningUp = false
+
+// Global shutdown flag to prevent new IPC handlers from executing
+let isShuttingDown = false
+
 // Clean up on app quit
-app.on('before-quit', async () => {
-  console.log('Application is quitting, cleaning up...')
+app.on('before-quit', async (event) => {
+  // Prevent default quit behavior to handle cleanup properly
+  if (!isCleaningUp) {
+    event.preventDefault()
+    isCleaningUp = true
+    isShuttingDown = true // Set shutdown flag immediately
 
-  try {
-    // Cleanup running processes
-    const runningProcesses = processManager.getRunningProcesses()
-    console.log(`Cleaning up ${runningProcesses.length} running processes`)
+    console.log('=== APPLICATION SHUTDOWN INITIATED ===')
+    const cleanupStartTime = Date.now()
+    console.log(`Timestamp: ${new Date().toISOString()}`)
+    console.log(`Platform: ${process.platform}`)
+    console.log(`Node version: ${process.version}`)
 
-    for (const process of runningProcesses) {
-      await processManager.killProcess(process.runId)
+    // Log current application state
+    const processCount = processManager.getProcessCount()
+    console.log(
+      `Process count - Total: ${processCount.total}, Agents: ${processCount.agents}, Claude: ${processCount.claude}`
+    )
+
+    // Set a hard timeout for cleanup (10 seconds max)
+    const cleanupTimeout = setTimeout(() => {
+      console.error('=== CLEANUP TIMEOUT REACHED ===')
+      console.error('Force quitting due to cleanup timeout')
+      process.exit(1)
+    }, 10000)
+
+    try {
+      // Cleanup running processes with individual timeouts
+      const runningProcesses = processManager.getRunningProcesses()
+      console.log(`Found ${runningProcesses.length} running processes to cleanup:`)
+      runningProcesses.forEach((proc, index) => {
+        console.log(
+          `  ${index + 1}. RunId: ${proc.runId}, Type: ${proc.processType}, PID: ${proc.pid}, Task: ${proc.task.substring(0, 50)}...`
+        )
+      })
+
+      const cleanupPromises = runningProcesses.map(async (processInfo) => {
+        try {
+          console.log(`Killing process ${processInfo.runId} (${processInfo.task})`)
+          const success = await processManager.killProcess(processInfo.runId)
+          console.log(`Process ${processInfo.runId} cleanup: ${success ? 'success' : 'failed'}`)
+          return success
+        } catch (error) {
+          console.error(`Error killing process ${processInfo.runId}:`, error)
+          return false
+        }
+      })
+
+      // Wait for all process cleanup with timeout
+      console.log('Waiting for individual process cleanup to complete...')
+      const cleanupResults = await Promise.allSettled(cleanupPromises)
+      const successCount = cleanupResults.filter(
+        (result) => result.status === 'fulfilled' && result.value === true
+      ).length
+      const failCount = cleanupResults.length - successCount
+      console.log(`Process cleanup results: ${successCount} successful, ${failCount} failed`)
+
+      // Force cleanup any remaining processes
+      console.log('Starting force cleanup of remaining processes...')
+      await processManager.forceCleanupAll()
+
+      // Verify all processes are gone
+      const remainingProcesses = processManager.getRunningProcesses()
+      console.log(`Processes remaining after cleanup: ${remainingProcesses.length}`)
+      if (remainingProcesses.length > 0) {
+        console.warn('Warning: Some processes may still be running after cleanup')
+        remainingProcesses.forEach((proc) => {
+          console.warn(`  Remaining: RunId ${proc.runId}, PID ${proc.pid}`)
+        })
+      }
+
+      // Close database connection
+      console.log('Closing database connection...')
+      await databaseManager.close()
+      console.log('Database connection closed successfully')
+
+      // Clear all IPC handlers to prevent memory leaks
+      console.log('Clearing IPC handlers...')
+
+      // Get all registered IPC events before clearing
+      const registeredEvents = new Set<string>()
+      const eventNames = ipcMain.eventNames()
+      eventNames.forEach((event) => {
+        const eventStr = String(event)
+        registeredEvents.add(eventStr)
+        const listenerCount = ipcMain.listenerCount(eventStr)
+        console.log(`  IPC Event: ${eventStr} (${listenerCount} listeners)`)
+      })
+
+      ipcMain.removeAllListeners()
+      console.log(`Cleared ${registeredEvents.size} IPC event types with total listeners`)
+
+      console.log('=== CLEANUP COMPLETED SUCCESSFULLY ===')
+      console.log(`Total cleanup time: ${Date.now() - cleanupStartTime} ms`)
+    } catch (error) {
+      console.error('=== ERROR DURING CLEANUP ===')
+      console.error('Cleanup error:', error)
+      console.error(
+        'Stack trace:',
+        error instanceof Error ? error.stack : 'No stack trace available'
+      )
+    } finally {
+      clearTimeout(cleanupTimeout)
+      const finalCleanupTime = Date.now() - cleanupStartTime
+      console.log('=== FINAL CLEANUP STAGE ===')
+      console.log(`Final cleanup time: ${finalCleanupTime} ms`)
+      console.log('Forcing application exit...')
+      // Force quit after cleanup
+      app.exit(0)
     }
-
-    // Close database connection
-    await databaseManager.close()
-    console.log('Cleanup completed')
-  } catch (error) {
-    console.error('Error during cleanup:', error)
   }
 })
+
+// Export the shutdown flag for use in other modules
+export { isShuttingDown }
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
