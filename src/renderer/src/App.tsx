@@ -22,6 +22,7 @@ import { NFOCredits } from '@/components/NFOCredits'
 import { ClaudeBinaryDialog } from '@/components/ClaudeBinaryDialog'
 import { Toast, ToastContainer } from '@/components/ui/toast'
 import { ProjectSettings } from '@/components/ProjectSettings'
+import { SetupWizardMain } from '@/components/SetupWizard/SetupWizardMain'
 
 type View =
   | 'welcome'
@@ -38,6 +39,7 @@ type View =
   | 'mcp'
   | 'usage-dashboard'
   | 'project-settings'
+  | 'setup-wizard'
 
 /**
  * Main App component - Manages the Claude directory browser UI
@@ -73,6 +75,22 @@ function App() {
       setLoading(false)
     }
   }, [view])
+
+  // Check if setup wizard should be shown on app startup
+  useEffect(() => {
+    const checkSetupWizard = async () => {
+      try {
+        const result = await api.setupWizardShouldShow()
+        if (result.success && result.data === true) {
+          setView('setup-wizard')
+        }
+      } catch (error) {
+        console.error('Failed to check setup wizard status:', error)
+      }
+    }
+
+    checkSetupWizard()
+  }, [])
 
   // Listen for Claude session selection events
   useEffect(() => {
@@ -427,6 +445,31 @@ function App() {
           )
         }
         return null
+
+      case 'setup-wizard':
+        return (
+          <SetupWizardMain
+            onComplete={async () => {
+              try {
+                await api.setupWizardCompleteSetup()
+                setToast({
+                  message: '设置向导已完成！欢迎使用 Claudiatron',
+                  type: 'success'
+                })
+                handleViewChange('welcome')
+              } catch (error) {
+                console.error('Failed to complete setup wizard:', error)
+                setToast({
+                  message: '完成设置时发生错误，请重试',
+                  type: 'error'
+                })
+              }
+            }}
+            onClose={() => {
+              handleViewChange('welcome')
+            }}
+          />
+        )
 
       default:
         return null

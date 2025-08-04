@@ -1073,7 +1073,11 @@ export const api = {
   /**
    * Executes a new interactive Claude Code session with streaming output
    */
-  async executeClaudeCode(projectPath: string, prompt: string, model: string): Promise<{ success: boolean; runId?: number; message: string }> {
+  async executeClaudeCode(
+    projectPath: string,
+    prompt: string,
+    model: string
+  ): Promise<{ success: boolean; runId?: number; message: string }> {
     const api = getWindowApi()
     return api.executeClaudeCode(projectPath, prompt, model)
   },
@@ -1959,6 +1963,175 @@ export const api = {
       return await api.slashCommandDelete(commandId, projectPath)
     } catch (error) {
       console.error('Failed to delete slash command:', error)
+      throw error
+    }
+  },
+
+  // Setup Wizard API methods
+
+  /**
+   * Gets the current setup wizard state
+   * @returns Promise resolving to the wizard state
+   */
+  async setupWizardGetState(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardGetState()
+    } catch (error) {
+      console.error('Failed to get setup wizard state:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Saves the setup wizard state
+   * @param state - The wizard state to save
+   * @returns Promise resolving to save result
+   */
+  async setupWizardSaveState(state: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardSaveState(state)
+    } catch (error) {
+      console.error('Failed to save setup wizard state:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Resets the setup wizard state
+   * @returns Promise resolving to reset result
+   */
+  async setupWizardReset(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardReset()
+    } catch (error) {
+      console.error('Failed to reset setup wizard:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Detects environment for setup wizard
+   * @param request - Optional detection request parameters
+   * @returns Promise resolving to environment detection result
+   */
+  async setupWizardDetectEnvironment(
+    request?: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardDetectEnvironment(request)
+    } catch (error) {
+      console.error('Failed to detect environment:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Validates Claude configuration
+   * @param request - Claude configuration validation request
+   * @returns Promise resolving to validation result
+   */
+  async setupWizardValidateClaudeConfig(
+    request: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardValidateClaudeConfig(request)
+    } catch (error) {
+      console.error('Failed to validate Claude config:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Clones a repository for setup wizard
+   * @param request - Repository clone request
+   * @returns Promise resolving to clone result
+   */
+  async setupWizardCloneRepository(
+    request: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardCloneRepository(request)
+    } catch (error) {
+      console.error('Failed to clone repository:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Completes the setup wizard
+   * @returns Promise resolving to completion result
+   */
+  async setupWizardCompleteSetup(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardCompleteSetup()
+    } catch (error) {
+      console.error('Failed to complete setup wizard:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Installs dependencies for setup wizard
+   * @param software - Software to install
+   * @returns Promise resolving to installation result
+   */
+  async setupWizardInstallDependencies(
+    software: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardInstallDependencies(software)
+    } catch (error) {
+      console.error('Failed to install dependencies:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Checks if setup wizard should be shown
+   * @returns Promise resolving to whether wizard should be shown
+   */
+  async setupWizardShouldShow(): Promise<{ success: boolean; data?: boolean; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardShouldShow()
+    } catch (error) {
+      console.error('Failed to check if setup wizard should show:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Gets setup wizard progress
+   * @returns Promise resolving to progress information
+   */
+  async setupWizardGetProgress(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardGetProgress()
+    } catch (error) {
+      console.error('Failed to get setup wizard progress:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Clears setup wizard cache
+   * @returns Promise resolving to cache clear result
+   */
+  async setupWizardClearCache(): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const api = getWindowApi()
+      return await api.setupWizardClearCache()
+    } catch (error) {
+      console.error('Failed to clear setup wizard cache:', error)
       throw error
     }
   }

@@ -98,6 +98,23 @@ const api = {
   getMonthlyUsage: (year: number, month: number) =>
     ipcRenderer.invoke('get-monthly-usage', year, month),
   getProjectUsage: (projectPath: string) => ipcRenderer.invoke('get-project-usage', projectPath),
+
+  // Setup Wizard
+  setupWizardGetState: () => ipcRenderer.invoke('setup-wizard-get-state'),
+  setupWizardSaveState: (state: any) => ipcRenderer.invoke('setup-wizard-save-state', state),
+  setupWizardDetectEnvironment: (request?: any) =>
+    ipcRenderer.invoke('setup-wizard-detect-environment', request),
+  setupWizardValidateClaudeConfig: (request: any) =>
+    ipcRenderer.invoke('setup-wizard-validate-claude-config', request),
+  setupWizardCloneRepository: (request: any) =>
+    ipcRenderer.invoke('setup-wizard-clone-repository', request),
+  setupWizardCompleteSetup: () => ipcRenderer.invoke('setup-wizard-complete-setup'),
+  setupWizardReset: () => ipcRenderer.invoke('setup-wizard-reset'),
+  setupWizardInstallDependencies: (software: string) =>
+    ipcRenderer.invoke('setup-wizard-install-dependencies', software),
+  setupWizardShouldShow: () => ipcRenderer.invoke('setup-wizard-should-show'),
+  setupWizardGetProgress: () => ipcRenderer.invoke('setup-wizard-get-progress'),
+  setupWizardClearCache: () => ipcRenderer.invoke('setup-wizard-clear-cache'),
   exportUsageData: (params: any) => ipcRenderer.invoke('export-usage-data', params),
   clearUsageData: (beforeDate?: string) => ipcRenderer.invoke('clear-usage-data', beforeDate),
   getUsageByDateRange: (startDate: string, endDate: string) =>
@@ -185,7 +202,7 @@ const api = {
     ipcRenderer.invoke('load-agent-session-history', { sessionId }),
   listRunningClaudeSessions: () => ipcRenderer.invoke('list-running-claude-sessions'),
   listRunningSessions: () => ipcRenderer.invoke('list-running-sessions'),
-  updateSessionId: (runId: number, sessionId: string) => 
+  updateSessionId: (runId: number, sessionId: string) =>
     ipcRenderer.invoke('update-session-id', { runId, sessionId }),
   getClaudeSessionOutput: (sessionId: string) =>
     ipcRenderer.invoke('get-claude-session-output', { sessionId }),
