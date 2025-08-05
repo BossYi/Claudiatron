@@ -8,7 +8,8 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -85,6 +86,9 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
     domainAccount: '',
     privateToken: ''
   })
+  const [loadingCredentials, setLoadingCredentials] = useState(false)
+  const [credentialsSource, setCredentialsSource] = useState<'saved' | 'manual' | null>(null)
+  const [clearingCredentials, setClearingCredentials] = useState(false)
 
   // 验证仓库URL
   const validateRepositoryUrl = useCallback(async (url: string) => {
@@ -116,6 +120,51 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
 
     return () => clearTimeout(timeoutId)
   }, [cloneUrl, activeTab, validateRepositoryUrl])
+
+  // 加载已保存的Aone认证信息
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      if (repositoryType === 'aone') {
+        setLoadingCredentials(true)
+        try {
+          const savedCredentials = await api.getAoneCredentials()
+          if (savedCredentials) {
+            setAoneAuth(savedCredentials)
+            setCredentialsSource('saved')
+            console.log('已加载保存的Aone认证信息:', savedCredentials.domainAccount)
+          } else {
+            setCredentialsSource('manual')
+          }
+        } catch (error) {
+          console.warn('加载已保存的Aone认证信息失败:', error)
+          setCredentialsSource('manual')
+        } finally {
+          setLoadingCredentials(false)
+        }
+      } else {
+        // 如果不是Aone仓库，清空认证信息
+        setAoneAuth({ domainAccount: '', privateToken: '' })
+        setCredentialsSource(null)
+      }
+    }
+
+    loadSavedCredentials()
+  }, [repositoryType])
+
+  // 清除已保存的认证信息
+  const clearSavedCredentials = async () => {
+    setClearingCredentials(true)
+    try {
+      await api.deleteAoneCredentials()
+      setAoneAuth({ domainAccount: '', privateToken: '' })
+      setCredentialsSource('manual')
+      console.log('已清除保存的Aone认证信息')
+    } catch (error) {
+      console.error('清除Aone认证信息失败:', error)
+    } finally {
+      setClearingCredentials(false)
+    }
+  }
 
   // 监听克隆进度事件
   useEffect(() => {
@@ -284,6 +333,10 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
       case 'clone':
         const hasUrl = cloneUrl.trim() && !urlValidating
         if (repositoryType === 'aone') {
+          // 如果正在加载或清除认证信息，等待操作完成
+          if (loadingCredentials || clearingCredentials) {
+            return false
+          }
           return hasUrl && aoneAuth.domainAccount.trim() && aoneAuth.privateToken.trim()
         }
         return hasUrl
@@ -396,53 +449,108 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                 {repositoryType === 'aone' && (
                   <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm text-blue-800 dark:text-blue-200">
+                      <CardTitle className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                        {loadingCredentials && <Loader2 className="w-4 h-4 animate-spin" />}
                         Aone 认证信息
+                        {credentialsSource === 'saved' && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          >
+                            已保存
+                          </Badge>
+                        )}
                       </CardTitle>
+                      {credentialsSource === 'saved' && (
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
+                            正在使用已保存的认证信息：{aoneAuth.domainAccount}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearSavedCredentials}
+                            disabled={clearingCredentials}
+                            className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                          >
+                            {clearingCredentials ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                清除
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="domainAccount">域账号</Label>
-                        <Input
-                          id="domainAccount"
-                          value={aoneAuth.domainAccount}
-                          onChange={(e) =>
-                            setAoneAuth((prev) => ({ ...prev, domainAccount: e.target.value }))
-                          }
-                          placeholder="your.name"
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="privateToken">Private Token</Label>
-                        <Input
-                          id="privateToken"
-                          type="password"
-                          value={aoneAuth.privateToken}
-                          onChange={(e) =>
-                            setAoneAuth((prev) => ({ ...prev, privateToken: e.target.value }))
-                          }
-                          placeholder="••••••••••••••••••••"
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="flex items-start gap-2 text-xs text-blue-600 dark:text-blue-400">
-                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>认证信息将被加密存储在本地，用于后续的仓库更新操作</span>
-                      </div>
-                      <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>
-                          <a
-                            href="https://code.alibaba-inc.com/profile/account"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            通过此链接获取个人Private-Token
-                          </a>
-                        </span>
-                      </div>
+                      {loadingCredentials ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                          <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
+                            加载已保存的认证信息...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="domainAccount">域账号</Label>
+                            <Input
+                              id="domainAccount"
+                              value={aoneAuth.domainAccount}
+                              onChange={(e) => {
+                                setAoneAuth((prev) => ({ ...prev, domainAccount: e.target.value }))
+                                if (credentialsSource === 'saved') {
+                                  setCredentialsSource('manual')
+                                }
+                              }}
+                              placeholder="your.name"
+                              className="font-mono text-sm"
+                              disabled={loadingCredentials}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="privateToken">Private Token</Label>
+                            <Input
+                              id="privateToken"
+                              type="password"
+                              value={aoneAuth.privateToken}
+                              onChange={(e) => {
+                                setAoneAuth((prev) => ({ ...prev, privateToken: e.target.value }))
+                                if (credentialsSource === 'saved') {
+                                  setCredentialsSource('manual')
+                                }
+                              }}
+                              placeholder="••••••••••••••••••••"
+                              className="font-mono text-sm"
+                              disabled={loadingCredentials}
+                            />
+                          </div>
+                        </>
+                      )}
+                      {!loadingCredentials && (
+                        <>
+                          <div className="flex items-start gap-2 text-xs text-blue-600 dark:text-blue-400">
+                            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>认证信息将被加密存储在本地，用于后续的仓库更新操作</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>
+                              <a
+                                href="https://code.alibaba-inc.com/profile/account"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                通过此链接获取个人Private-Token
+                              </a>
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 )}
