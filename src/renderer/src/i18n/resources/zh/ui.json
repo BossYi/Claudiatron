@@ -15,11 +15,11 @@
   },
   "navigation": {
     "ccAgents": {
-      "title": "CC Agent",
+      "title": "智能体",
       "description": "管理您的 Claude Code Agent"
     },
     "ccProjects": {
-      "title": "CC 项目",
+      "title": "项目",
       "description": "浏览您的 Claude Code 项目"
     },
     "usageDashboard": {
@@ -47,8 +47,8 @@
     "subtitle": "您的 Claude Code 界面"
   },
   "projects": {
-    "title": {
-      "main": "CC 项目"
+    "title": { 
+      "main": "Claude Code 项目"
     },
     "description": {
       "browse": "浏览您的 Claude Code 会话"

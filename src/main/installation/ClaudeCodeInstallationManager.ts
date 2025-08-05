@@ -453,7 +453,7 @@ export class ClaudeCodeInstallationManager extends BaseInstallationManager {
    */
   public async configureApi(
     apiKey: string,
-    apiUrl: string = 'https://fc-api.keep-learn.top'
+    apiUrl: string = 'https://idealab.alibaba-inc.com/api/code'
   ): Promise<ApiConfigurationResult> {
     try {
       this.log('开始配置 API 密钥', 'info')

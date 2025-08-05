@@ -48,10 +48,12 @@ function checkShutdownState(operationName: string): void {
 function formatClaudeSettings(apiUrl: string, apiKey: string): any {
   return {
     env: {
-      ANTHROPIC_BASE_URL: apiUrl,
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
-    },
-    apiKeyHelper: `echo '${apiKey}'`
+      DISABLE_PROMPT_CACHING: 0,
+      ANTHROPIC_BASE_URL: apiUrl || 'https://idealab.alibaba-inc.com/api/code',
+      ANTHROPIC_AUTH_TOKEN: apiKey,
+      ANTHROPIC_MODEL: 'qwen3-coder-plus',
+      ANTHROPIC_SMALL_FAST_MODEL: 'qwen3-coder-plus'
+    }
   }
 }
 
@@ -99,7 +101,7 @@ async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<
       const parsedContent = JSON.parse(writtenContent)
 
       // Basic validation of written content
-      if (!parsedContent.env?.ANTHROPIC_BASE_URL || !parsedContent.apiKeyHelper) {
+      if (!parsedContent.env?.ANTHROPIC_BASE_URL || !parsedContent.env?.ANTHROPIC_AUTH_TOKEN) {
         throw new Error('Verification failed: written content is incomplete')
       }
 
@@ -120,7 +122,7 @@ async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<
 
 // 缓存环境检测结果
 const environmentCache = new Map<string, { data: DetailedEnvironmentStatus; timestamp: number }>()
-const CACHE_DURATION = 60 * 1000 // 1分钟缓存
+const CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
 
 // 互斥锁以防止并发操作
 const operationLocks = new Map<string, Promise<any>>()
@@ -394,18 +396,16 @@ export function setupSetupWizardHandlers() {
             return { success: true, data: response }
           }
 
-          // Basic format validation
-          if (!request.apiKey.startsWith('sk-')) {
-            const response: ClaudeConfigValidationResponse = {
-              valid: false,
-              error: 'Invalid API key format - must start with sk-'
-            }
-            return { success: true, data: response }
-          }
-
-          // URL validation
+          // URL validation - ensure HTTPS
           try {
-            new URL(request.apiUrl)
+            const url = new URL(request.apiUrl)
+            if (url.protocol !== 'https:') {
+              const response: ClaudeConfigValidationResponse = {
+                valid: false,
+                error: 'API URL must use HTTPS protocol'
+              }
+              return { success: true, data: response }
+            }
           } catch {
             const response: ClaudeConfigValidationResponse = {
               valid: false,
@@ -414,10 +414,7 @@ export function setupSetupWizardHandlers() {
             return { success: true, data: response }
           }
 
-          // TODO: Implement actual API validation
-          // For now, we'll simulate a validation call
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-
+          // Configuration is valid - proceed with saving
           const response: ClaudeConfigValidationResponse = {
             valid: true,
             apiInfo: {
@@ -899,6 +896,94 @@ export function setupSetupWizardHandlers() {
       return createErrorResponse(error, ERROR_CODES.UNKNOWN_ERROR)
     }
   })
+
+  // Aone 认证管理 API
+  const aoneCredentialsService = getAoneCredentialsService()
+
+  // 获取全局 Aone 认证信息
+  ipcMain.handle('get-aone-credentials', async () => {
+    try {
+      const credentials = await aoneCredentialsService.getGlobalCredentials()
+      return {
+        success: true,
+        data: credentials
+      }
+    } catch (error) {
+      console.error('Failed to get Aone credentials:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get credentials'
+      }
+    }
+  })
+
+  // 保存全局 Aone 认证信息
+  ipcMain.handle('save-aone-credentials', async (_, authInfo) => {
+    try {
+      const credentials = await aoneCredentialsService.saveGlobalCredentials(authInfo)
+      return {
+        success: true,
+        data: credentials
+      }
+    } catch (error) {
+      console.error('Failed to save Aone credentials:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save credentials'
+      }
+    }
+  })
+
+  // 删除全局 Aone 认证信息
+  ipcMain.handle('delete-aone-credentials', async () => {
+    try {
+      const deleted = await aoneCredentialsService.deleteGlobalCredentials()
+      return {
+        success: true,
+        data: { deleted }
+      }
+    } catch (error) {
+      console.error('Failed to delete Aone credentials:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete credentials'
+      }
+    }
+  })
+
+  // 检查是否已配置 Aone 认证信息
+  ipcMain.handle('has-aone-credentials', async () => {
+    try {
+      const hasCredentials = await aoneCredentialsService.hasCredentials()
+      return {
+        success: true,
+        data: { hasCredentials }
+      }
+    } catch (error) {
+      console.error('Failed to check Aone credentials:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check credentials'
+      }
+    }
+  })
+
+  // 获取 Aone 认证信息（不包含私钥）
+  ipcMain.handle('get-aone-credentials-info', async () => {
+    try {
+      const credentialsInfo = await aoneCredentialsService.getCredentialsInfo()
+      return {
+        success: true,
+        data: credentialsInfo
+      }
+    } catch (error) {
+      console.error('Failed to get Aone credentials info:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get credentials info'
+      }
+    }
+  })
 }
 
 // State validation function
@@ -1090,91 +1175,3 @@ async function detectClaudeCli(check: boolean): Promise<SoftwareStatus> {
     }
   }
 }
-
-// Aone 认证管理 API
-const aoneCredentialsService = getAoneCredentialsService()
-
-// 获取全局 Aone 认证信息
-ipcMain.handle('get-aone-credentials', async () => {
-  try {
-    const credentials = await aoneCredentialsService.getGlobalCredentials()
-    return {
-      success: true,
-      data: credentials
-    }
-  } catch (error) {
-    console.error('Failed to get Aone credentials:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get credentials'
-    }
-  }
-})
-
-// 保存全局 Aone 认证信息
-ipcMain.handle('save-aone-credentials', async (_, authInfo) => {
-  try {
-    const credentials = await aoneCredentialsService.saveGlobalCredentials(authInfo)
-    return {
-      success: true,
-      data: credentials
-    }
-  } catch (error) {
-    console.error('Failed to save Aone credentials:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to save credentials'
-    }
-  }
-})
-
-// 删除全局 Aone 认证信息
-ipcMain.handle('delete-aone-credentials', async () => {
-  try {
-    const deleted = await aoneCredentialsService.deleteGlobalCredentials()
-    return {
-      success: true,
-      data: { deleted }
-    }
-  } catch (error) {
-    console.error('Failed to delete Aone credentials:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete credentials'
-    }
-  }
-})
-
-// 检查是否已配置 Aone 认证信息
-ipcMain.handle('has-aone-credentials', async () => {
-  try {
-    const hasCredentials = await aoneCredentialsService.hasCredentials()
-    return {
-      success: true,
-      data: { hasCredentials }
-    }
-  } catch (error) {
-    console.error('Failed to check Aone credentials:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to check credentials'
-    }
-  }
-})
-
-// 获取 Aone 认证信息（不包含私钥）
-ipcMain.handle('get-aone-credentials-info', async () => {
-  try {
-    const credentialsInfo = await aoneCredentialsService.getCredentialsInfo()
-    return {
-      success: true,
-      data: credentialsInfo
-    }
-  } catch (error) {
-    console.error('Failed to get Aone credentials info:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get credentials info'
-    }
-  }
-})

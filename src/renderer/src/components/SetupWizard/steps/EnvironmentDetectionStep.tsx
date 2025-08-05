@@ -399,7 +399,7 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
         </div>
 
         {/* 软件检测结果 */}
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-lg mx-auto">
           {softwareStatus.map((item) => (
             <Card key={item.name} className={item.critical ? 'border-primary/20' : ''}>
               <CardContent className="p-4">
@@ -472,7 +472,7 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
 
         {/* 错误提示和解决方案 */}
         {hasErrors && !detecting && !hasInstalling && (
-          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800 max-w-lg mx-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
                 <AlertCircle className="w-5 h-5" />
@@ -584,7 +584,7 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
 
         {/* 安装进行中状态 */}
         {hasInstalling && (
-          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 max-w-lg mx-auto">
             <CardContent className="flex items-center gap-3 p-4">
               <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
               <div>
@@ -599,7 +599,7 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
 
         {/* 成功提示 */}
         {allCriticalInstalled && !detecting && !hasInstalling && (
-          <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+          <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800 max-w-lg mx-auto">
             <CardContent className="space-y-3 p-4">
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-6 h-6 text-green-600" />

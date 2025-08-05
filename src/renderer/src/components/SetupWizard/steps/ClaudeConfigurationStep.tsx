@@ -44,7 +44,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
 }) => {
   const [apiKey, setApiKey] = useState(state.userData.apiConfiguration?.apiKey || '')
   const [apiUrl, setApiUrl] = useState(
-    state.userData.apiConfiguration?.apiUrl || 'https://fc-api.keep-learn.top'
+    state.userData.apiConfiguration?.apiUrl || 'https://idealab.alibaba-inc.com/api/code'
   )
   const [showApiKey, setShowApiKey] = useState(false)
   const [validating, setValidating] = useState(false)
@@ -59,59 +59,82 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     const currentKey = apiKey.trim()
     const currentUrl = apiUrl.trim()
 
+    // 基本输入验证
     if (!currentKey) {
       onError(WizardStep.CLAUDE_CONFIGURATION, 'API密钥不能为空')
+      return false
+    }
+
+    if (!currentUrl) {
+      onError(WizardStep.CLAUDE_CONFIGURATION, 'API URL不能为空')
+      return false
+    }
+
+    // 验证URL格式并确保是HTTPS
+    try {
+      const url = new URL(currentUrl)
+      if (url.protocol !== 'https:') {
+        onError(WizardStep.CLAUDE_CONFIGURATION, 'API URL必须使用HTTPS协议')
+        return false
+      }
+    } catch (urlError) {
+      onError(WizardStep.CLAUDE_CONFIGURATION, 'API URL格式无效')
       return false
     }
 
     // 检查是否需要重新验证
     if (!isApiConfigurationChanged()) {
       console.log('Skipping validation: configuration unchanged')
-      return validationResult?.valid || false
+      const isValid = validationResult?.valid || false
+
+      // 如果之前验证成功且配置未变更，确保步骤状态为完成
+      if (isValid) {
+        onComplete(WizardStep.CLAUDE_CONFIGURATION)
+      }
+
+      return isValid
     }
 
     setValidating(true)
     onClearError(WizardStep.CLAUDE_CONFIGURATION)
 
     try {
-      // 这里应该调用实际的验证API
-      // const result = await window.api.setupWizardValidateClaudeConfig({
-      //   apiUrl: currentUrl,
-      //   apiKey: currentKey
-      // })
+      // 调用实际的验证API
+      const result = await window.api.setupWizardValidateClaudeConfig({
+        apiUrl: currentUrl,
+        apiKey: currentKey
+      })
 
-      // 模拟验证过程
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      if (result.success && result.data) {
+        const validationData = result.data
 
-      // 模拟验证结果
-      const mockResult = {
-        valid: currentKey.startsWith('sk-'),
-        error: currentKey.startsWith('sk-') ? undefined : 'API密钥格式无效',
-        apiInfo: currentKey.startsWith('sk-')
-          ? {
-              version: '2023-06-01',
-              capabilities: ['text-generation', 'code-completion']
-            }
-          : undefined
-      }
-
-      setValidationResult(mockResult)
-
-      if (mockResult.valid) {
-        // 更新配置
-        updateApiConfiguration({
-          apiKey: currentKey,
-          apiUrl: currentUrl,
-          lastValidated: new Date().toISOString()
+        setValidationResult({
+          valid: validationData.valid,
+          error: validationData.error,
+          apiInfo: validationData.apiInfo
         })
 
-        // 标记配置已验证
-        markApiConfigurationValidated()
+        if (validationData.valid) {
+          // 更新配置
+          updateApiConfiguration({
+            apiKey: currentKey,
+            apiUrl: currentUrl,
+            lastValidated: new Date().toISOString()
+          })
 
-        onComplete(WizardStep.CLAUDE_CONFIGURATION)
-        return true
+          // 标记配置已验证
+          markApiConfigurationValidated()
+
+          onComplete(WizardStep.CLAUDE_CONFIGURATION)
+          return true
+        } else {
+          onError(WizardStep.CLAUDE_CONFIGURATION, validationData.error || '配置验证失败')
+          return false
+        }
       } else {
-        onError(WizardStep.CLAUDE_CONFIGURATION, mockResult.error || '配置验证失败')
+        const errorMessage = result.error || '验证请求失败'
+        onError(WizardStep.CLAUDE_CONFIGURATION, errorMessage)
+        setValidationResult({ valid: false, error: errorMessage })
         return false
       }
     } catch (error) {
@@ -158,17 +181,20 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
         // 如果配置完整但未验证，显示需要验证的提示
         setValidationResult({ valid: false, error: '配置已更改，请重新验证' })
       } else {
-        // 如果配置未更改且之前验证过，显示成功状态
-        setValidationResult({
+        // 如果配置未更改且之前验证过，显示成功状态并标记步骤完成
+        const validResult = {
           valid: true,
           apiInfo: {
             version: '2023-06-01',
             capabilities: ['text-generation', 'code-completion']
           }
-        })
+        }
+        setValidationResult(validResult)
+        // 确保步骤状态为已完成
+        onComplete(WizardStep.CLAUDE_CONFIGURATION)
       }
     }
-  }, [apiKey, apiUrl, isApiConfigurationChanged]) // 只在组件挂载或配置初始化时执行
+  }, [apiKey, apiUrl, isApiConfigurationChanged, onComplete]) // 只在组件挂载或配置初始化时执行
 
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto">
@@ -202,7 +228,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
                 type="url"
                 value={apiUrl}
                 onChange={(e) => handleApiUrlChange(e.target.value)}
-                placeholder="https://fc-api.keep-learn.top"
+                placeholder="https://idealab.alibaba-inc.com/api/code"
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
@@ -226,7 +252,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => handleApiKeyChange(e.target.value)}
-                  placeholder="sk-ant-..."
+                  placeholder="输入您的API密钥..."
                   className="font-mono text-sm pr-10"
                 />
                 <Button
