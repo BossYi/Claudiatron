@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Key, Eye, EyeOff, CheckCircle, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,8 @@ interface ClaudeConfigurationStepProps {
   updateRepositoryConfiguration: (config: Partial<RepositoryConfiguration>) => void
   updateEnvironmentStatus: (status: Partial<EnvironmentStatus>) => void
   canProceed: boolean
+  isApiConfigurationChanged: () => boolean
+  markApiConfigurationValidated: () => void
 }
 
 /**
@@ -36,7 +38,9 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
   onComplete,
   onError,
   onClearError,
-  updateApiConfiguration
+  updateApiConfiguration,
+  isApiConfigurationChanged,
+  markApiConfigurationValidated
 }) => {
   const [apiKey, setApiKey] = useState(state.userData.apiConfiguration?.apiKey || '')
   const [apiUrl, setApiUrl] = useState(
@@ -50,10 +54,6 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     apiInfo?: any
   } | null>(null)
 
-  // 使用 ref 来跟踪上次验证的输入，防止重复验证
-  const lastValidatedRef = useRef<{ apiKey: string; apiUrl: string } | null>(null)
-  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
   // 验证API配置
   const validateConfiguration = useCallback(async () => {
     const currentKey = apiKey.trim()
@@ -64,13 +64,9 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
       return false
     }
 
-    // 检查是否已经验证过相同的输入
-    if (
-      lastValidatedRef.current &&
-      lastValidatedRef.current.apiKey === currentKey &&
-      lastValidatedRef.current.apiUrl === currentUrl
-    ) {
-      console.log('Skipping validation: same input as last time')
+    // 检查是否需要重新验证
+    if (!isApiConfigurationChanged()) {
+      console.log('Skipping validation: configuration unchanged')
       return validationResult?.valid || false
     }
 
@@ -78,9 +74,6 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     onClearError(WizardStep.CLAUDE_CONFIGURATION)
 
     try {
-      // 记录当前验证的输入
-      lastValidatedRef.current = { apiKey: currentKey, apiUrl: currentUrl }
-
       // 这里应该调用实际的验证API
       // const result = await window.api.setupWizardValidateClaudeConfig({
       //   apiUrl: currentUrl,
@@ -105,11 +98,16 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
       setValidationResult(mockResult)
 
       if (mockResult.valid) {
+        // 更新配置
         updateApiConfiguration({
           apiKey: currentKey,
           apiUrl: currentUrl,
           lastValidated: new Date().toISOString()
         })
+
+        // 标记配置已验证
+        markApiConfigurationValidated()
+
         onComplete(WizardStep.CLAUDE_CONFIGURATION)
         return true
       } else {
@@ -124,15 +122,15 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
     } finally {
       setValidating(false)
     }
-
-    return false
   }, [
     apiKey,
     apiUrl,
     onError,
     onClearError,
     updateApiConfiguration,
+    markApiConfigurationValidated,
     onComplete,
+    isApiConfigurationChanged,
     validationResult?.valid
   ])
 
@@ -140,71 +138,40 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
   const handleApiKeyChange = (value: string) => {
     setApiKey(value)
     setValidationResult(null)
-    // 清除之前的验证缓存，因为输入已变化
-    lastValidatedRef.current = null
+    // 同步更新到状态管理中，这会触发配置变更标记
+    updateApiConfiguration({ apiKey: value })
   }
 
   // 处理API URL变化
   const handleApiUrlChange = (value: string) => {
     setApiUrl(value)
     setValidationResult(null)
-    // 清除之前的验证缓存，因为输入已变化
-    lastValidatedRef.current = null
+    // 同步更新到状态管理中，这会触发配置变更标记
+    updateApiConfiguration({ apiUrl: value })
   }
 
-  // 创建稳定的验证函数引用，避免useEffect重复执行
-  const triggerValidation = useCallback(() => {
-    if (!validating && apiKey.trim() && apiUrl.trim()) {
-      // 直接调用验证逻辑，避免依赖 validateConfiguration
-      const currentKey = apiKey.trim()
-      const currentUrl = apiUrl.trim()
-
-      // 检查是否已经验证过相同的输入
-      if (
-        lastValidatedRef.current &&
-        lastValidatedRef.current.apiKey === currentKey &&
-        lastValidatedRef.current.apiUrl === currentUrl
-      ) {
-        return
-      }
-
-      validateConfiguration()
-    }
-  }, [validating, apiKey, apiUrl])
-
-  // 自动验证配置 - 使用更稳定的依赖管理
+  // 组件挂载时检查是否需要验证
   useEffect(() => {
-    // 清除之前的定时器
-    if (validationTimeoutRef.current) {
-      clearTimeout(validationTimeoutRef.current)
-    }
-
+    // 只在组件首次加载时检查
     if (apiKey.trim() && apiUrl.trim()) {
-      // 设置防抖延时验证
-      validationTimeoutRef.current = setTimeout(() => {
-        triggerValidation()
-      }, 1000)
-    }
-
-    // 清理函数
-    return () => {
-      if (validationTimeoutRef.current) {
-        clearTimeout(validationTimeoutRef.current)
+      if (isApiConfigurationChanged()) {
+        // 如果配置完整但未验证，显示需要验证的提示
+        setValidationResult({ valid: false, error: '配置已更改，请重新验证' })
+      } else {
+        // 如果配置未更改且之前验证过，显示成功状态
+        setValidationResult({
+          valid: true,
+          apiInfo: {
+            version: '2023-06-01',
+            capabilities: ['text-generation', 'code-completion']
+          }
+        })
       }
     }
-  }, [apiKey, apiUrl, triggerValidation])
-
-  // 组件卸载时清理定时器
-  useEffect(() => {
-    return () => {
-      if (validationTimeoutRef.current) {
-        clearTimeout(validationTimeoutRef.current)
-      }
-    }
-  }, [])
+  }, [apiKey, apiUrl, isApiConfigurationChanged]) // 只在组件挂载或配置初始化时执行
 
   return (
-    <div className="flex flex-col h-full max-w-2xl mx-auto">
+    <div className="flex flex-col h-full max-w-3xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -337,7 +304,7 @@ export const ClaudeConfigurationStep: React.FC<ClaudeConfigurationStepProps> = (
         </Card>
 
         {/* 安全提示 */}
-        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 max-w-lg">
           <CardContent className="p-4">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />

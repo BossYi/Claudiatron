@@ -8,6 +8,21 @@ import type {
 } from '@/types/setupWizard'
 import { WizardStep, StepStatus, ERROR_CODES } from '@/types/setupWizard'
 
+/**
+ * 生成API配置的哈希值，用于检测配置变更
+ */
+function generateApiConfigHash(apiKey: string, apiUrl: string): string {
+  // 简单的哈希函数，将配置内容转换为字符串哈希
+  const configString = `${apiKey}:${apiUrl}`
+  let hash = 0
+  for (let i = 0; i < configString.length; i++) {
+    const char = configString.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // 转换为32位有符号整数
+  }
+  return hash.toString(36)
+}
+
 interface UseSetupWizardStateOptions {
   autoSave?: boolean
   debounceMs?: number
@@ -39,6 +54,10 @@ interface UseSetupWizardStateReturn {
   completeStep: (step: WizardStep) => void
   setStepError: (step: WizardStep, error: string) => void
   clearStepError: (step: WizardStep) => void
+
+  // Configuration Change Tracking
+  isApiConfigurationChanged: () => boolean
+  markApiConfigurationValidated: () => void
 
   // State Operations
   resetState: () => Promise<void>
@@ -108,47 +127,6 @@ export function useSetupWizardState(
       setState((prev) => ({ ...prev, canProceed }))
     }
   }, [canProceed, state.canProceed])
-
-  // 步骤验证逻辑 (currently unused but available for future use)
-  // const validateStep = useCallback(
-  //   async (step: WizardStep): Promise<boolean> => {
-  //     try {
-  //       switch (step) {
-  //         case WizardStep.WELCOME:
-  //           return true // 欢迎步骤总是有效
-
-  //         case WizardStep.ENVIRONMENT_DETECTION:
-  //           // 检查是否已经检测过环境
-  //           return !!state.userData.environmentStatus
-
-  //         case WizardStep.CLAUDE_CONFIGURATION: {
-  //           // 检查API配置是否完整
-  //           const apiConfig = state.userData.apiConfiguration
-  //           return !!(apiConfig?.apiKey && apiConfig?.apiUrl)
-  //         }
-
-  //         case WizardStep.REPOSITORY_IMPORT: {
-  //           // 检查仓库配置是否完整
-  //           const repoConfig = state.userData.repository
-  //           return !!(repoConfig?.url && repoConfig?.localPath)
-  //         }
-
-  //         case WizardStep.COMPLETION:
-  //           // 检查前面所有步骤是否完成
-  //           return Object.values(state.stepStatus).every(
-  //             (status) => status === StepStatus.COMPLETED
-  //           )
-
-  //         default:
-  //           return false
-  //       }
-  //     } catch (error) {
-  //       console.error('Step validation error:', error)
-  //       return false
-  //     }
-  //   },
-  //   [state.userData, state.stepStatus]
-  // )
 
   // 步骤导航
   const nextStep = useCallback(async () => {
@@ -302,6 +280,33 @@ export function useSetupWizardState(
     [error]
   )
 
+  // 配置变更检测
+  const isApiConfigurationChanged = useCallback(() => {
+    const currentConfig = state.userData.apiConfiguration
+    if (!currentConfig?.apiKey || !currentConfig?.apiUrl) {
+      return true // 如果配置不完整，认为需要验证
+    }
+
+    if (!currentConfig.validatedConfigHash) {
+      return true // 如果没有验证过的哈希，需要验证
+    }
+
+    // 计算当前配置的哈希值并与已验证的哈希比较
+    const currentHash = generateApiConfigHash(currentConfig.apiKey, currentConfig.apiUrl)
+    return currentHash !== currentConfig.validatedConfigHash
+  }, [state.userData.apiConfiguration])
+
+  const markApiConfigurationValidated = useCallback(() => {
+    const currentConfig = state.userData.apiConfiguration
+    if (currentConfig?.apiKey && currentConfig?.apiUrl) {
+      // 生成当前配置的哈希值并存储到配置中
+      const configHash = generateApiConfigHash(currentConfig.apiKey, currentConfig.apiUrl)
+      updateApiConfiguration({
+        validatedConfigHash: configHash
+      })
+    }
+  }, [state.userData.apiConfiguration, updateApiConfiguration])
+
   // 状态操作
   const saveState = useCallback(async () => {
     if (!window.api?.setupWizardSaveState) {
@@ -418,6 +423,10 @@ export function useSetupWizardState(
     completeStep,
     setStepError,
     clearStepError,
+
+    // Configuration Change Tracking
+    isApiConfigurationChanged,
+    markApiConfigurationValidated,
 
     // State Operations
     resetState,

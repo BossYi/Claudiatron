@@ -78,10 +78,10 @@
       "installClaudeCode": "Install Claude Code"
     },
     "buttons": {
+      "configWizard": "Setup Wizard",
       "usageDashboard": "Usage Dashboard",
       "claudeMd": "CLAUDE.md",
       "mcp": "MCP",
-      "configWizard": "Setup Wizard",
       "settings": "Settings",
       "about": "About"
     }

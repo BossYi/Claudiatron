@@ -184,6 +184,11 @@ export const Topbar: React.FC<TopbarProps> = ({
 
       {/* Action Buttons */}
       <div className="flex items-center space-x-2 app-region-no-drag">
+        <Button variant="ghost" size="sm" onClick={onConfigWizardClick} className="text-xs">
+          <Wand2 className="mr-2 h-3 w-3" />
+          {t('topbar.buttons.configWizard')}
+        </Button>
+
         <Button variant="ghost" size="sm" onClick={onUsageClick} className="text-xs">
           <BarChart3 className="mr-2 h-3 w-3" />
           {t('topbar.buttons.usageDashboard')}
@@ -197,11 +202,6 @@ export const Topbar: React.FC<TopbarProps> = ({
         <Button variant="ghost" size="sm" onClick={onMCPClick} className="text-xs">
           <Network className="mr-2 h-3 w-3" />
           {t('topbar.buttons.mcp')}
-        </Button>
-
-        <Button variant="ghost" size="sm" onClick={onConfigWizardClick} className="text-xs">
-          <Wand2 className="mr-2 h-3 w-3" />
-          {t('topbar.buttons.configWizard')}
         </Button>
 
         <Button variant="ghost" size="sm" onClick={onSettingsClick} className="text-xs">

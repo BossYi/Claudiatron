@@ -59,7 +59,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ state, onNext, onCompl
   }
 
   return (
-    <div className="flex flex-col items-center justify-start h-full max-w-2xl mx-auto text-center">
+    <div className="flex flex-col items-center justify-start h-full max-w-3xl mx-auto text-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

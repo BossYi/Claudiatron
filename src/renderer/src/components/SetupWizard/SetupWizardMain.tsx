@@ -60,7 +60,9 @@ export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({ onComplete, on
     updateEnvironmentStatus,
     completeStep,
     setStepError,
-    clearStepError
+    clearStepError,
+    isApiConfigurationChanged,
+    markApiConfigurationValidated
   } = useSetupWizardState({ autoSave: true })
 
   // 持久化管理钩子
@@ -136,7 +138,9 @@ export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({ onComplete, on
       updateApiConfiguration,
       updateRepositoryConfiguration,
       updateEnvironmentStatus,
-      canProceed
+      canProceed,
+      isApiConfigurationChanged,
+      markApiConfigurationValidated
     }
 
     switch (currentStep) {

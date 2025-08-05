@@ -25,6 +25,7 @@ export interface ApiConfiguration {
   apiKey: string
   isCustomUrl?: boolean
   lastValidated?: string
+  validatedConfigHash?: string
 }
 
 // 仓库配置类型
