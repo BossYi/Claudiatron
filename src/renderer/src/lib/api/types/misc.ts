@@ -30,5 +30,13 @@ export interface SlashCommand {
   accepts_arguments?: boolean
 }
 
+/**
+ * Aone 认证信息
+ */
+export interface AoneAuthInfo {
+  domainAccount: string
+  privateToken: string
+}
+
 // Re-export HooksConfiguration for convenience
 export type { HooksConfiguration }

@@ -33,7 +33,7 @@ export class AppSettingsService {
    */
   async setSetting(key: string, value: string): Promise<AppSettings> {
     checkShutdownState('setSetting')
-    
+
     const repository = await this.getRepository()
 
     let setting = await repository.findOne({ where: { key } })

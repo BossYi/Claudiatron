@@ -7,7 +7,6 @@ export { RepositoryImportService } from './RepositoryImportService'
 export type {
   RepositoryValidationResult,
   RepositoryAnalysis,
-  ProjectType,
   ProjectInfo,
   RepositoryCloneResult,
   ProjectImportResult,

@@ -13,6 +13,7 @@ import { StorageApi } from './api/modules/storage'
 import { HooksApi } from './api/modules/hooks'
 import { SlashCommandsApi } from './api/modules/slashCommands'
 import { SetupWizardApi } from './api/modules/setupWizard'
+import { AoneApi } from './api/modules/aone'
 
 // Export compatibility functions
 export * from './api/utils/compatibility'
@@ -149,6 +150,13 @@ export const api = {
   setupWizardBatchInstall: SetupWizardApi.setupWizardBatchInstall.bind(SetupWizardApi),
   setupWizardValidateRepository: SetupWizardApi.setupWizardValidateRepository.bind(SetupWizardApi),
   setupWizardImportProject: SetupWizardApi.setupWizardImportProject.bind(SetupWizardApi),
+
+  // Aone credentials management
+  getAoneCredentials: AoneApi.getAoneCredentials.bind(AoneApi),
+  saveAoneCredentials: AoneApi.saveAoneCredentials.bind(AoneApi),
+  deleteAoneCredentials: AoneApi.deleteAoneCredentials.bind(AoneApi),
+  hasAoneCredentials: AoneApi.hasAoneCredentials.bind(AoneApi),
+  getAoneCredentialsInfo: AoneApi.getAoneCredentialsInfo.bind(AoneApi),
 
   // File system utilities (from compatibility)
   listDirectoryContents: async (directoryPath: string) => {

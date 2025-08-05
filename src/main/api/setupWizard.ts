@@ -9,6 +9,7 @@ import {
   type InstallationOptions
 } from '../installation/BaseInstallationManager'
 import { RepositoryImportService } from '../services/RepositoryImportService'
+import { getAoneCredentialsService } from '../database/services/AoneCredentialsService'
 import { gitDetectionService } from '../detection/GitDetectionService'
 import { nodeJsDetectionService } from '../detection/NodeJsDetectionService'
 import type {
@@ -61,15 +62,15 @@ function formatClaudeSettings(apiUrl: string, apiKey: string): any {
 async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<void> {
   const claudeDir = join(homedir(), '.claude')
   const claudeSettingsPath = join(claudeDir, 'settings.json')
-  
+
   try {
     console.log(`Saving Claude configuration to: ${claudeSettingsPath}`)
-    
+
     // Validate inputs
     if (!apiUrl || !apiKey) {
       throw new Error('API URL and API key are required')
     }
-    
+
     // Ensure .claude directory exists
     try {
       await fs.mkdir(claudeDir, { recursive: true })
@@ -78,11 +79,11 @@ async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<
       const errorMsg = dirError instanceof Error ? dirError.message : String(dirError)
       throw new Error(`Failed to create ~/.claude directory: ${errorMsg}`)
     }
-    
+
     // Format settings according to Claude Code requirements
     const settings = formatClaudeSettings(apiUrl, apiKey)
     console.log('Formatted Claude settings:', JSON.stringify(settings, null, 2))
-    
+
     // Write settings to file with proper error handling
     try {
       await fs.writeFile(claudeSettingsPath, JSON.stringify(settings, null, 2), 'utf-8')
@@ -91,28 +92,29 @@ async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<
       const errorMsg = fileError instanceof Error ? fileError.message : String(fileError)
       throw new Error(`Failed to write settings file: ${errorMsg}`)
     }
-    
+
     // Verify the file was written correctly
     try {
       const writtenContent = await fs.readFile(claudeSettingsPath, 'utf-8')
       const parsedContent = JSON.parse(writtenContent)
-      
+
       // Basic validation of written content
       if (!parsedContent.env?.ANTHROPIC_BASE_URL || !parsedContent.apiKeyHelper) {
         throw new Error('Verification failed: written content is incomplete')
       }
-      
+
       console.log('Verification successful: settings file written correctly')
     } catch (verifyError) {
       const errorMsg = verifyError instanceof Error ? verifyError.message : String(verifyError)
       console.warn(`Settings file verification failed: ${errorMsg}`)
       // Don't throw here as the main write succeeded
     }
-    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error('Failed to save Claude configuration:', errorMessage)
-    throw new Error(`Failed to save Claude configuration to ~/.claude/settings.json: ${errorMessage}`)
+    throw new Error(
+      `Failed to save Claude configuration to ~/.claude/settings.json: ${errorMessage}`
+    )
   }
 }
 
@@ -439,7 +441,8 @@ export function setupSetupWizardHandlers() {
             wizardStateSaved = true
             console.log('Successfully saved configuration to wizard state')
           } catch (wizardError) {
-            const errorMsg = wizardError instanceof Error ? wizardError.message : String(wizardError)
+            const errorMsg =
+              wizardError instanceof Error ? wizardError.message : String(wizardError)
             console.error('Failed to save to wizard state:', errorMsg)
             saveErrors.push(`Wizard state: ${errorMsg}`)
           }
@@ -450,7 +453,8 @@ export function setupSetupWizardHandlers() {
             claudeSettingsSaved = true
             console.log('Successfully saved configuration to ~/.claude/settings.json')
           } catch (claudeError) {
-            const errorMsg = claudeError instanceof Error ? claudeError.message : String(claudeError)
+            const errorMsg =
+              claudeError instanceof Error ? claudeError.message : String(claudeError)
             console.error('Failed to save to ~/.claude/settings.json:', errorMsg)
             saveErrors.push(`Claude settings: ${errorMsg}`)
           }
@@ -468,7 +472,9 @@ export function setupSetupWizardHandlers() {
           if (!wizardStateSaved) {
             // Wizard state save failed but Claude settings succeeded
             // This is less critical - show warning but continue
-            console.warn(`Configuration saved to ~/.claude/settings.json but wizard state save failed: ${saveErrors.join('; ')}`)
+            console.warn(
+              `Configuration saved to ~/.claude/settings.json but wizard state save failed: ${saveErrors.join('; ')}`
+            )
           }
 
           if (wizardStateSaved && claudeSettingsSaved) {
@@ -1084,3 +1090,91 @@ async function detectClaudeCli(check: boolean): Promise<SoftwareStatus> {
     }
   }
 }
+
+// Aone 认证管理 API
+const aoneCredentialsService = getAoneCredentialsService()
+
+// 获取全局 Aone 认证信息
+ipcMain.handle('get-aone-credentials', async () => {
+  try {
+    const credentials = await aoneCredentialsService.getGlobalCredentials()
+    return {
+      success: true,
+      data: credentials
+    }
+  } catch (error) {
+    console.error('Failed to get Aone credentials:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get credentials'
+    }
+  }
+})
+
+// 保存全局 Aone 认证信息
+ipcMain.handle('save-aone-credentials', async (_, authInfo) => {
+  try {
+    const credentials = await aoneCredentialsService.saveGlobalCredentials(authInfo)
+    return {
+      success: true,
+      data: credentials
+    }
+  } catch (error) {
+    console.error('Failed to save Aone credentials:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save credentials'
+    }
+  }
+})
+
+// 删除全局 Aone 认证信息
+ipcMain.handle('delete-aone-credentials', async () => {
+  try {
+    const deleted = await aoneCredentialsService.deleteGlobalCredentials()
+    return {
+      success: true,
+      data: { deleted }
+    }
+  } catch (error) {
+    console.error('Failed to delete Aone credentials:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete credentials'
+    }
+  }
+})
+
+// 检查是否已配置 Aone 认证信息
+ipcMain.handle('has-aone-credentials', async () => {
+  try {
+    const hasCredentials = await aoneCredentialsService.hasCredentials()
+    return {
+      success: true,
+      data: { hasCredentials }
+    }
+  } catch (error) {
+    console.error('Failed to check Aone credentials:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check credentials'
+    }
+  }
+})
+
+// 获取 Aone 认证信息（不包含私钥）
+ipcMain.handle('get-aone-credentials-info', async () => {
+  try {
+    const credentialsInfo = await aoneCredentialsService.getCredentialsInfo()
+    return {
+      success: true,
+      data: credentialsInfo
+    }
+  } catch (error) {
+    console.error('Failed to get Aone credentials info:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get credentials info'
+    }
+  }
+})

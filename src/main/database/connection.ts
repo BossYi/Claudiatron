@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { app } from 'electron'
 import path from 'path'
-import { Agent, AgentRun, AppSettings } from './entities'
+import { Agent, AgentRun, AppSettings, AoneCredentials } from './entities'
 
 class DatabaseManager {
   private dataSource: DataSource | null = null
@@ -13,7 +13,7 @@ class DatabaseManager {
     if (this.isShuttingDown) {
       throw new Error('DatabaseManager is shutting down, cannot initialize')
     }
-    
+
     if (this.dataSource && this.dataSource.isInitialized) {
       return this.dataSource
     }
@@ -25,7 +25,7 @@ class DatabaseManager {
     this.dataSource = new DataSource({
       type: 'better-sqlite3',
       database: dbPath,
-      entities: [Agent, AgentRun, AppSettings],
+      entities: [Agent, AgentRun, AppSettings, AoneCredentials],
       synchronize: true, // Auto-create tables in development
       logging: false, // Set to true for debugging SQL queries
       migrations: [],
@@ -51,7 +51,7 @@ class DatabaseManager {
     if (this.isShuttingDown) {
       throw new Error('DatabaseManager is shutting down, cannot access data source')
     }
-    
+
     if (!this.dataSource || !this.dataSource.isInitialized) {
       return await this.initialize()
     }
@@ -61,7 +61,7 @@ class DatabaseManager {
   async close(): Promise<void> {
     console.log('[DatabaseManager] Starting database shutdown...')
     this.isShuttingDown = true
-    
+
     if (this.dataSource && this.dataSource.isInitialized) {
       try {
         console.log('[DatabaseManager] Destroying database connection...')

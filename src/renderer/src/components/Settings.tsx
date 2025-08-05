@@ -16,6 +16,7 @@ import { HooksEditor } from './HooksEditor'
 import { SlashCommandsManager } from './SlashCommandsManager'
 import { LanguageSelector } from './LanguageSelector'
 import { EnvVarInput } from './EnvVarInput'
+import { AoneCredentialsManager } from './AoneCredentialsManager'
 import { useTranslation } from 'react-i18next'
 
 interface SettingsProps {
@@ -445,13 +446,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, className }) => {
               onValueChange={setActiveTab}
               className="w-full h-full flex flex-col"
             >
-              <TabsList className="grid grid-cols-7 w-full gap-1">
+              <TabsList className="grid grid-cols-8 w-full gap-1">
                 <TabsTrigger value="general">{t('tabs.general')}</TabsTrigger>
                 <TabsTrigger value="permissions">{t('tabs.permissions')}</TabsTrigger>
                 <TabsTrigger value="environment">{t('tabs.environment')}</TabsTrigger>
                 <TabsTrigger value="advanced">{t('tabs.advanced')}</TabsTrigger>
                 <TabsTrigger value="hooks">{t('tabs.hooks')}</TabsTrigger>
                 <TabsTrigger value="commands">{t('tabs.commands')}</TabsTrigger>
+                <TabsTrigger value="aone">Aone 认证</TabsTrigger>
                 <TabsTrigger value="storage">{t('tabs.storage')}</TabsTrigger>
               </TabsList>
 
@@ -874,6 +876,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, className }) => {
               <TabsContent value="commands" className="flex-1 overflow-y-auto custom-scrollbar">
                 <Card className="p-6">
                   <SlashCommandsManager className="p-0" />
+                </Card>
+              </TabsContent>
+
+              {/* Aone Credentials Tab */}
+              <TabsContent value="aone" className="flex-1 overflow-y-auto custom-scrollbar">
+                <Card className="p-6">
+                  <AoneCredentialsManager />
                 </Card>
               </TabsContent>
 

@@ -17,7 +17,12 @@ import { promisify } from 'util'
 import * as os from 'os'
 import { URL } from 'url'
 import { gitDetectionService } from '../detection/GitDetectionService'
-import type { RepositoryCloneRequest, RepositoryCloneProgress } from '../types/setupWizard'
+import { getAoneCredentialsService } from '../database/services/AoneCredentialsService'
+import type {
+  RepositoryCloneRequest,
+  RepositoryCloneProgress,
+  AoneAuthInfo
+} from '../types/setupWizard'
 
 const execAsync = promisify(exec)
 
@@ -52,35 +57,11 @@ export interface RepositoryAnalysis {
 }
 
 /**
- * 项目类型
- */
-export type ProjectType =
-  | 'javascript'
-  | 'typescript'
-  | 'react'
-  | 'vue'
-  | 'angular'
-  | 'python'
-  | 'django'
-  | 'flask'
-  | 'fastapi'
-  | 'rust'
-  | 'go'
-  | 'java'
-  | 'kotlin'
-  | 'cpp'
-  | 'csharp'
-  | 'php'
-  | 'other'
-
-/**
  * 项目信息
  */
 export interface ProjectInfo {
   name: string
   path: string
-  type: ProjectType
-  description?: string
   repositoryUrl?: string
   createdAt: string
 }
@@ -124,6 +105,8 @@ export interface CloneOptions {
  */
 export class RepositoryImportService extends EventEmitter {
   private readonly claudeProjectsDir: string
+  private readonly aoneCredentialsService = getAoneCredentialsService()
+
   constructor() {
     super()
     this.claudeProjectsDir = join(os.homedir(), '.claude', 'projects')
@@ -320,118 +303,42 @@ export class RepositoryImportService extends EventEmitter {
   }
 
   /**
-   * 分析仓库
+   * 构建 Aone 认证 URL
    */
-  public async analyzeRepository(url: string): Promise<RepositoryAnalysis> {
+  private buildAoneCloneUrl(repoUrl: string, auth: AoneAuthInfo): string {
     try {
-      // 获取仓库基本信息
-      const remoteInfo = await this.getRemoteRepositoryInfo(url)
+      const parsed = new URL(repoUrl)
+      const authString = `${auth.domainAccount}:${auth.privateToken}`
 
-      // 检测编程语言（通过API或克隆后分析）
-      const languages = await this.detectRepositoryLanguages(url)
-
-      return {
-        accessible: true,
-        defaultBranch: remoteInfo.defaultBranch || 'main',
-        branches: remoteInfo.branches || [],
-        hasReadme: remoteInfo.hasReadme || false,
-        languages,
-        framework: this.detectFramework(languages),
-        buildSystem: this.detectBuildSystem(languages),
-        packageManager: this.detectPackageManager(languages)
-      }
+      // 构建格式: https://{域账号}:{private-token}@code.alibaba-inc.com/foo/bar.git
+      return `${parsed.protocol}//${authString}@${parsed.host}${parsed.pathname}`
     } catch (error) {
-      return {
-        accessible: false,
-        defaultBranch: 'main',
-        branches: [],
-        hasReadme: false,
-        languages: [],
-        error: error instanceof Error ? error.message : String(error)
-      }
+      console.error('Failed to build Aone clone URL:', error)
+      throw new Error('Invalid repository URL format')
     }
   }
 
   /**
-   * 获取远程仓库信息
+   * 清理日志中的敏感信息
    */
-  private async getRemoteRepositoryInfo(url: string): Promise<{
-    defaultBranch?: string
-    branches?: string[]
-    hasReadme?: boolean
-  }> {
-    try {
-      // 获取远程分支信息
-      const { stdout } = await execAsync(`git ls-remote --heads ${url}`)
-      const branches = stdout
-        .split('\n')
-        .filter((line) => line.trim())
-        .map((line) => line.split('\t')[1].replace('refs/heads/', ''))
+  private sanitizeLogMessage(message: string, auth?: AoneAuthInfo): string {
+    if (!auth) return message
 
-      // 推测默认分支
-      const defaultBranch = branches.includes('main')
-        ? 'main'
-        : branches.includes('master')
-          ? 'master'
-          : branches[0] || 'main'
+    let sanitized = message
 
-      return {
-        defaultBranch,
-        branches,
-        hasReadme: false // 需要克隆后才能准确检测
-      }
-    } catch {
-      return {}
+    // 替换域账号和令牌
+    if (auth.domainAccount) {
+      sanitized = sanitized.replace(new RegExp(auth.domainAccount, 'g'), '***ACCOUNT***')
     }
-  }
+    if (auth.privateToken) {
+      sanitized = sanitized.replace(new RegExp(auth.privateToken, 'g'), '***TOKEN***')
+    }
 
-  /**
-   * 检测仓库编程语言
-   */
-  private async detectRepositoryLanguages(_url: string): Promise<string[]> {
-    // 这里可以通过GitHub API等方式获取语言信息
-    // 暂时返回空数组，实际克隆后会进行详细检测
-    return []
-  }
+    // 替换完整的认证字符串
+    const authString = `${auth.domainAccount}:${auth.privateToken}`
+    sanitized = sanitized.replace(new RegExp(authString, 'g'), '***AUTH_REMOVED***')
 
-  /**
-   * 检测框架
-   */
-  private detectFramework(languages: string[]): string | undefined {
-    // 基于语言推测可能的框架
-    if (languages.includes('javascript') || languages.includes('typescript')) {
-      return 'web' // 需要进一步检测具体框架
-    }
-    if (languages.includes('python')) {
-      return 'python'
-    }
-    return undefined
-  }
-
-  /**
-   * 检测构建系统
-   */
-  private detectBuildSystem(languages: string[]): string | undefined {
-    if (languages.includes('javascript') || languages.includes('typescript')) {
-      return 'npm' // 需要进一步检测
-    }
-    if (languages.includes('python')) {
-      return 'pip'
-    }
-    if (languages.includes('rust')) {
-      return 'cargo'
-    }
-    if (languages.includes('go')) {
-      return 'go'
-    }
-    return undefined
-  }
-
-  /**
-   * 检测包管理器
-   */
-  private detectPackageManager(languages: string[]): string | undefined {
-    return this.detectBuildSystem(languages) // 暂时复用构建系统检测
+    return sanitized
   }
 
   /**
@@ -450,21 +357,65 @@ export class RepositoryImportService extends EventEmitter {
         }
       }
 
-      // 2. 准备本地路径
+      // 2. 处理 Aone 认证
+      let actualCloneUrl = validation.normalizedUrl
+      let aoneAuthToUse = request.aoneAuth
+
+      if (request.repositoryType === 'aone') {
+        // 如果没有提供认证信息，尝试使用全局认证
+        if (!aoneAuthToUse) {
+          try {
+            const globalAuth = await this.aoneCredentialsService.getGlobalCredentials()
+            if (globalAuth) {
+              aoneAuthToUse = globalAuth
+              console.log('使用已保存的全局 Aone 认证信息')
+            }
+          } catch (error) {
+            console.warn('获取全局 Aone 认证信息失败:', error)
+          }
+        }
+
+        if (aoneAuthToUse) {
+          actualCloneUrl = this.buildAoneCloneUrl(validation.normalizedUrl, aoneAuthToUse)
+
+          // 如果是新提供的认证信息，保存为全局认证
+          if (request.aoneAuth) {
+            try {
+              await this.aoneCredentialsService.saveGlobalCredentials({
+                domainAccount: request.aoneAuth.domainAccount,
+                privateToken: request.aoneAuth.privateToken
+              })
+              console.log('Aone 全局认证信息已保存')
+            } catch (error) {
+              console.warn('保存 Aone 全局认证信息失败:', error)
+              // 不影响克隆流程，继续执行
+            }
+          }
+        } else {
+          throw new Error('Aone 私有仓库需要认证信息，请先配置域账号和 Private Token')
+        }
+      }
+
+      // 3. 准备本地路径
       const localPath = request.localPath || join(this.claudeProjectsDir, validation.repoName)
       await this.prepareLocalPath(localPath)
 
-      // 3. 执行克隆
+      // 4. 执行克隆
       const cloneResult = await this.performGitClone(
-        validation.normalizedUrl,
+        actualCloneUrl,
         localPath,
-        request.options || {}
+        request.options || {},
+        aoneAuthToUse // 传递实际使用的认证信息用于日志清理
       )
 
       if (!cloneResult.success) {
+        const sanitizedError = this.sanitizeLogMessage(
+          cloneResult.error || '克隆失败',
+          aoneAuthToUse
+        )
         return {
           success: false,
-          error: cloneResult.error
+          error: sanitizedError
         }
       }
 
@@ -522,7 +473,8 @@ export class RepositoryImportService extends EventEmitter {
   private async performGitClone(
     url: string,
     localPath: string,
-    options: CloneOptions
+    options: CloneOptions,
+    auth?: AoneAuthInfo
   ): Promise<{ success: boolean; error?: string }> {
     return new Promise((resolve) => {
       const args = ['clone']
@@ -540,7 +492,8 @@ export class RepositoryImportService extends EventEmitter {
 
       args.push(url, localPath)
 
-      console.log('执行Git克隆命令:', 'git', args.join(' '))
+      const logMessage = `执行Git克隆命令: git ${args.join(' ')}`
+      console.log(this.sanitizeLogMessage(logMessage, auth))
 
       const child = spawn('git', args, {
         stdio: 'pipe',
@@ -552,7 +505,7 @@ export class RepositoryImportService extends EventEmitter {
 
       child.stdout?.on('data', (data) => {
         const output = data.toString()
-        console.log('Git stdout:', output)
+        console.log('Git stdout:', this.sanitizeLogMessage(output, auth))
 
         // 解析克隆进度
         if (output.includes('Receiving objects')) {
@@ -570,7 +523,7 @@ export class RepositoryImportService extends EventEmitter {
       child.stderr?.on('data', (data) => {
         const output = data.toString()
         stderr += output
-        console.log('Git stderr:', output)
+        console.log('Git stderr:', this.sanitizeLogMessage(output, auth))
 
         // Git的进度信息通常在stderr中
         if (output.includes('Cloning into')) {
@@ -583,14 +536,14 @@ export class RepositoryImportService extends EventEmitter {
           this.reportCloneProgress('completed', 100, '克隆完成')
           resolve({ success: true })
         } else {
-          const error = stderr || `Git克隆失败，退出代码: ${code}`
+          const error = this.sanitizeLogMessage(stderr, auth) || `Git克隆失败，退出代码: ${code}`
           this.reportCloneProgress('failed', 0, '克隆失败', error)
           resolve({ success: false, error })
         }
       })
 
       child.on('error', (error) => {
-        const errorMessage = `Git进程错误: ${error.message}`
+        const errorMessage = this.sanitizeLogMessage(`Git进程错误: ${error.message}`, auth)
         this.reportCloneProgress('failed', 0, '克隆失败', errorMessage)
         resolve({ success: false, error: errorMessage })
       })
@@ -625,14 +578,9 @@ export class RepositoryImportService extends EventEmitter {
     repoInfo: RepositoryValidationResult
   ): Promise<ProjectInfo> {
     try {
-      const projectType = await this.detectProjectType(localPath)
-      const description = await this.getProjectDescription(localPath)
-
       return {
         name: repoInfo.repoName,
         path: localPath,
-        type: projectType,
-        description,
         repositoryUrl: repoInfo.normalizedUrl,
         createdAt: new Date().toISOString()
       }
@@ -641,181 +589,10 @@ export class RepositoryImportService extends EventEmitter {
       return {
         name: repoInfo.repoName,
         path: localPath,
-        type: 'other',
         repositoryUrl: repoInfo.normalizedUrl,
         createdAt: new Date().toISOString()
       }
     }
-  }
-
-  /**
-   * 检测项目类型
-   */
-  private async detectProjectType(projectPath: string): Promise<ProjectType> {
-    try {
-      const files = await fs.readdir(projectPath)
-
-      // 检测配置文件
-      const configFiles = files.map((f) => f.toLowerCase())
-
-      // JavaScript/TypeScript项目
-      if (configFiles.includes('package.json')) {
-        const packageJson = await this.readPackageJson(projectPath)
-
-        if (packageJson?.dependencies?.react || packageJson?.devDependencies?.react) {
-          return 'react'
-        }
-        if (packageJson?.dependencies?.vue || packageJson?.devDependencies?.vue) {
-          return 'vue'
-        }
-        if (packageJson?.dependencies?.['@angular/core']) {
-          return 'angular'
-        }
-
-        // 检查是否有TypeScript
-        if (
-          configFiles.includes('tsconfig.json') ||
-          packageJson?.devDependencies?.typescript ||
-          packageJson?.dependencies?.typescript
-        ) {
-          return 'typescript'
-        }
-
-        return 'javascript'
-      }
-
-      // Python项目
-      if (
-        configFiles.includes('requirements.txt') ||
-        configFiles.includes('pyproject.toml') ||
-        configFiles.includes('setup.py') ||
-        configFiles.includes('pipfile')
-      ) {
-        const pythonFiles = files.filter((f) => f.endsWith('.py'))
-        if (pythonFiles.some((f) => f.includes('manage') || f.includes('wsgi'))) {
-          return 'django'
-        }
-        if (pythonFiles.some((f) => this.containsFlaskImport(join(projectPath, f)))) {
-          return 'flask'
-        }
-        if (pythonFiles.some((f) => this.containsFastAPIImport(join(projectPath, f)))) {
-          return 'fastapi'
-        }
-
-        return 'python'
-      }
-
-      // Rust项目
-      if (configFiles.includes('cargo.toml')) {
-        return 'rust'
-      }
-
-      // Go项目
-      if (configFiles.includes('go.mod') || configFiles.includes('go.sum')) {
-        return 'go'
-      }
-
-      // Java项目
-      if (configFiles.includes('pom.xml') || configFiles.includes('build.gradle')) {
-        return 'java'
-      }
-
-      // C++项目
-      if (configFiles.includes('cmakelist.txt') || configFiles.includes('makefile')) {
-        return 'cpp'
-      }
-
-      // C#项目
-      if (files.some((f) => f.endsWith('.csproj') || f.endsWith('.sln'))) {
-        return 'csharp'
-      }
-
-      // PHP项目
-      if (configFiles.includes('composer.json') || files.some((f) => f.endsWith('.php'))) {
-        return 'php'
-      }
-
-      return 'other'
-    } catch (error) {
-      console.warn('项目类型检测失败:', error)
-      return 'other'
-    }
-  }
-
-  /**
-   * 读取package.json
-   */
-  private async readPackageJson(projectPath: string): Promise<any> {
-    try {
-      const packageJsonPath = join(projectPath, 'package.json')
-      const content = await fs.readFile(packageJsonPath, 'utf8')
-      return JSON.parse(content)
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * 检查文件是否包含Flask导入
-   */
-  private async containsFlaskImport(filePath: string): Promise<boolean> {
-    try {
-      const content = await fs.readFile(filePath, 'utf8')
-      return content.includes('from flask') || content.includes('import flask')
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * 检查文件是否包含FastAPI导入
-   */
-  private async containsFastAPIImport(filePath: string): Promise<boolean> {
-    try {
-      const content = await fs.readFile(filePath, 'utf8')
-      return content.includes('from fastapi') || content.includes('import fastapi')
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * 获取项目描述
-   */
-  private async getProjectDescription(projectPath: string): Promise<string | undefined> {
-    try {
-      // 尝试从README文件获取描述
-      const readmeFiles = ['README.md', 'README.txt', 'README.rst', 'readme.md']
-
-      for (const readmeFile of readmeFiles) {
-        try {
-          const readmePath = join(projectPath, readmeFile)
-          const content = await fs.readFile(readmePath, 'utf8')
-
-          // 提取第一段作为描述
-          const lines = content.split('\n').filter((line) => line.trim())
-          const firstNonHeaderLine = lines.find((line) => !line.startsWith('#'))
-
-          if (firstNonHeaderLine && firstNonHeaderLine.length > 10) {
-            return (
-              firstNonHeaderLine.substring(0, 200) + (firstNonHeaderLine.length > 200 ? '...' : '')
-            )
-          }
-        } catch {
-          continue
-        }
-      }
-
-      // 尝试从package.json获取描述
-      const packageJson = await this.readPackageJson(projectPath)
-      if (packageJson?.description) {
-        return packageJson.description
-      }
-    } catch (error) {
-      console.warn('获取项目描述失败:', error)
-    }
-
-    return undefined
   }
 
   /**
@@ -832,15 +609,9 @@ export class RepositoryImportService extends EventEmitter {
         }
       }
 
-      // 分析项目
-      const projectType = await this.detectProjectType(localPath)
-      const description = await this.getProjectDescription(localPath)
-
       const projectInfo: ProjectInfo = {
         name: basename(localPath),
         path: localPath,
-        type: projectType,
-        description,
         createdAt: new Date().toISOString()
       }
 

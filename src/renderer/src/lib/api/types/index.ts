@@ -49,4 +49,4 @@ export type {
 } from './mcp'
 
 // Miscellaneous types
-export type { SlashCommand, HooksConfiguration } from './misc'
+export type { SlashCommand, HooksConfiguration, AoneAuthInfo } from './misc'

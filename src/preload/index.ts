@@ -121,6 +121,14 @@ const api = {
     ipcRenderer.invoke('setup-wizard-validate-repository', url),
   setupWizardImportProject: (localPath: string) =>
     ipcRenderer.invoke('setup-wizard-import-project', localPath),
+
+  // Aone 认证管理
+  getAoneCredentials: () => ipcRenderer.invoke('get-aone-credentials'),
+  saveAoneCredentials: (authInfo: any) => ipcRenderer.invoke('save-aone-credentials', authInfo),
+  deleteAoneCredentials: () => ipcRenderer.invoke('delete-aone-credentials'),
+  hasAoneCredentials: () => ipcRenderer.invoke('has-aone-credentials'),
+  getAoneCredentialsInfo: () => ipcRenderer.invoke('get-aone-credentials-info'),
+
   exportUsageData: (params: any) => ipcRenderer.invoke('export-usage-data', params),
   clearUsageData: (beforeDate?: string) => ipcRenderer.invoke('clear-usage-data', beforeDate),
   getUsageByDateRange: (startDate: string, endDate: string) =>

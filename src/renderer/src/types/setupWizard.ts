@@ -148,10 +148,27 @@ export interface ClaudeConfigValidationResponse {
   }
 }
 
+// 仓库类型枚举
+export enum RepositoryType {
+  AONE = 'aone',
+  GITHUB = 'github',
+  GITLAB = 'gitlab',
+  BITBUCKET = 'bitbucket',
+  OTHER = 'other'
+}
+
+// Aone 认证信息
+export interface AoneAuthInfo {
+  domainAccount: string
+  privateToken: string
+}
+
 // 仓库克隆请求
 export interface RepositoryCloneRequest {
   url: string
   localPath: string
+  repositoryType?: RepositoryType
+  aoneAuth?: AoneAuthInfo
   options?: {
     depth?: number
     branch?: string

@@ -17,12 +17,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import type {
   SetupWizardState,
   ApiConfiguration,
   RepositoryConfiguration,
   EnvironmentStatus,
-  RepositoryCloneProgress
+  RepositoryCloneProgress,
+  RepositoryType,
+  AoneAuthInfo
 } from '@/types/setupWizard'
 import { WizardStep } from '@/types/setupWizard'
 import { api } from '@/lib/api'
@@ -57,7 +60,7 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   // 克隆仓库状态
   const [cloneUrl, setCloneUrl] = useState('')
   const [clonePath, setClonePath] = useState('')
-  const [cloneBranch, setCloneBranch] = useState('main')
+  const [cloneBranch, setCloneBranch] = useState('master')
 
   // 本地项目状态
   const [localPath, setLocalPath] = useState('')
@@ -75,6 +78,13 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   const [urlValidating, setUrlValidating] = useState(false)
   const [cloneProgress, setCloneProgress] = useState<RepositoryCloneProgress | null>(null)
   const [folderSelectError, setFolderSelectError] = useState<string | null>(null)
+
+  // Aone 相关状态
+  const [repositoryType, setRepositoryType] = useState<RepositoryType>('aone' as RepositoryType)
+  const [aoneAuth, setAoneAuth] = useState<AoneAuthInfo>({
+    domainAccount: '',
+    privateToken: ''
+  })
 
   // 验证仓库URL
   const validateRepositoryUrl = useCallback(async (url: string) => {
@@ -153,8 +163,10 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
           result = await api.setupWizardCloneRepository({
             url: cloneUrl,
             localPath: clonePath || undefined,
+            repositoryType,
+            aoneAuth: repositoryType === 'aone' ? aoneAuth : undefined,
             options: {
-              branch: cloneBranch || 'main',
+              branch: cloneBranch || 'master',
               depth: 1 // 浅克隆以提高速度
             }
           })
@@ -167,7 +179,7 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
             url: cloneUrl,
             localPath: result.data.localPath,
             projectName: validation.repoName,
-            branch: cloneBranch || 'main',
+            branch: cloneBranch || 'master',
             isPrivate: validation.isPrivate
           }
 
@@ -270,7 +282,11 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   const canImport = () => {
     switch (activeTab) {
       case 'clone':
-        return cloneUrl.trim() && !urlValidating
+        const hasUrl = cloneUrl.trim() && !urlValidating
+        if (repositoryType === 'aone') {
+          return hasUrl && aoneAuth.domainAccount.trim() && aoneAuth.privateToken.trim()
+        }
+        return hasUrl
       case 'local':
         return localPath.trim()
       case 'create':
@@ -327,6 +343,29 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                 <CardTitle className="text-base">克隆Git仓库</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 仓库类型选择 */}
+                <div className="space-y-3">
+                  <Label>仓库类型</Label>
+                  <RadioGroup
+                    value={repositoryType}
+                    onValueChange={(value) => setRepositoryType(value as RepositoryType)}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="aone" id="aone" />
+                      <Label htmlFor="aone" className="cursor-pointer">
+                        Aone (推荐)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="other" id="other" />
+                      <Label htmlFor="other" className="cursor-pointer">
+                        其他 Git 仓库
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="cloneUrl">仓库URL</Label>
                   <div className="relative">
@@ -335,7 +374,11 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                       type="url"
                       value={cloneUrl}
                       onChange={(e) => setCloneUrl(e.target.value)}
-                      placeholder="https://github.com/username/repository.git 或 username/repository"
+                      placeholder={
+                        repositoryType === 'aone'
+                          ? 'https://code.alibaba-inc.com/owner/repository.git'
+                          : 'https://github.com/username/repository.git 或 username/repository'
+                      }
                       className="font-mono text-sm pr-10"
                     />
                     {urlValidating && (
@@ -343,9 +386,53 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    支持完整URL或GitHub简写形式 (如: microsoft/vscode)
+                    {repositoryType === 'aone'
+                      ? '请输入完整的 Aone 仓库 URL'
+                      : '支持完整URL或GitHub简写形式 (如: microsoft/vscode)'}
                   </p>
                 </div>
+
+                {/* Aone 认证表单 */}
+                {repositoryType === 'aone' && (
+                  <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm text-blue-800 dark:text-blue-200">
+                        Aone 认证信息
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="domainAccount">域账号</Label>
+                        <Input
+                          id="domainAccount"
+                          value={aoneAuth.domainAccount}
+                          onChange={(e) =>
+                            setAoneAuth((prev) => ({ ...prev, domainAccount: e.target.value }))
+                          }
+                          placeholder="your.name"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="privateToken">Private Token</Label>
+                        <Input
+                          id="privateToken"
+                          type="password"
+                          value={aoneAuth.privateToken}
+                          onChange={(e) =>
+                            setAoneAuth((prev) => ({ ...prev, privateToken: e.target.value }))
+                          }
+                          placeholder="••••••••••••••••••••"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="flex items-start gap-2 text-xs text-blue-600 dark:text-blue-400">
+                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>认证信息将被加密存储在本地，用于后续的仓库更新操作</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="clonePath">本地目录</Label>

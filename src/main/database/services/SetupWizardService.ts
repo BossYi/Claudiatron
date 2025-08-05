@@ -50,7 +50,7 @@ export class SetupWizardService {
    */
   async saveState(state: SetupWizardState): Promise<void> {
     checkShutdownState('saveState')
-    
+
     try {
       const persistData: SetupWizardPersistData = {
         state,
