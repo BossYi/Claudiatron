@@ -801,5 +801,44 @@ export function setupClaudeHandlers() {
     }
   })
 
+  // Get Checkpoint Settings
+  ipcMain.handle('get-checkpoint-settings', async (_, { sessionId, projectId, projectPath }) => {
+    console.log('Main: get-checkpoint-settings called with', { sessionId, projectId, projectPath })
+    try {
+      // For Claude Code sessions, checkpoint settings are managed by Claude Code itself
+      // We return default settings that match the expected API interface
+
+      // Check if the session exists by looking for the JSONL file
+      const claudeProjectsDir = join(homedir(), '.claude/projects')
+      const sessionPath = join(claudeProjectsDir, projectId, `${sessionId}.jsonl`)
+
+      const sessionExists = await exists(sessionPath)
+      let totalCheckpoints = 0
+
+      if (sessionExists) {
+        try {
+          const content = await fs.readFile(sessionPath, 'utf-8')
+          const lines = content.split('\n').filter((line) => line.trim())
+          totalCheckpoints = lines.length
+        } catch {
+          // If we can't read the file, default to 0
+          totalCheckpoints = 0
+        }
+      }
+
+      return {
+        auto_checkpoint_enabled: true, // Claude Code manages this internally
+        checkpoint_strategy: 'auto', // Default strategy
+        total_checkpoints: totalCheckpoints,
+        current_checkpoint_id: sessionId // Use session ID as checkpoint ID
+      }
+    } catch (error) {
+      console.error('Error getting checkpoint settings:', error)
+      throw new Error(
+        `Failed to get checkpoint settings: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  })
+
   // Window Controls are handled by @electron-toolkit/utils registerFramelessWindowIpc()
 }

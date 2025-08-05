@@ -210,6 +210,8 @@ const api = {
   // Session Management
   clearCheckpointManager: (sessionId: string) =>
     ipcRenderer.invoke('clear-checkpoint-manager', sessionId),
+  getCheckpointSettings: (sessionId: string, projectId: string, projectPath: string) =>
+    ipcRenderer.invoke('get-checkpoint-settings', { sessionId, projectId, projectPath }),
   loadSessionHistory: (sessionId: string, projectId: string) =>
     ipcRenderer.invoke('load-session-history', { sessionId, projectId }),
   loadAgentSessionHistory: (sessionId: string) =>

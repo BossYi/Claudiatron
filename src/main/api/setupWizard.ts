@@ -42,24 +42,8 @@ function checkShutdownState(operationName: string): void {
 }
 
 /**
- * Format API configuration for Claude Code settings.json
- * Creates the required format for ~/.claude/settings.json
- */
-function formatClaudeSettings(apiUrl: string, apiKey: string): any {
-  return {
-    env: {
-      DISABLE_PROMPT_CACHING: 0,
-      ANTHROPIC_BASE_URL: apiUrl || 'https://idealab.alibaba-inc.com/api/code',
-      ANTHROPIC_AUTH_TOKEN: apiKey,
-      ANTHROPIC_MODEL: 'qwen3-coder-plus',
-      ANTHROPIC_SMALL_FAST_MODEL: 'qwen3-coder-plus'
-    }
-  }
-}
-
-/**
  * Save Claude configuration to ~/.claude/settings.json
- * Ensures the directory exists and writes the formatted settings
+ * If file exists, only updates the env section while preserving other fields
  */
 async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<void> {
   const claudeDir = join(homedir(), '.claude')
@@ -82,13 +66,40 @@ async function saveClaudeConfiguration(apiUrl: string, apiKey: string): Promise<
       throw new Error(`Failed to create ~/.claude directory: ${errorMsg}`)
     }
 
-    // Format settings according to Claude Code requirements
-    const settings = formatClaudeSettings(apiUrl, apiKey)
-    console.log('Formatted Claude settings:', JSON.stringify(settings, null, 2))
+    let existingSettings: any = {}
 
-    // Write settings to file with proper error handling
+    // Try to read existing settings file
     try {
-      await fs.writeFile(claudeSettingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+      const existingContent = await fs.readFile(claudeSettingsPath, 'utf-8')
+      existingSettings = JSON.parse(existingContent)
+      console.log('Found existing settings file, will merge with new env configuration')
+    } catch (readError) {
+      console.log('No existing settings file found, will create new one')
+    }
+
+    // Create new env configuration
+    const newEnvConfig = {
+      DISABLE_PROMPT_CACHING: 0,
+      ANTHROPIC_BASE_URL: apiUrl || 'https://idealab.alibaba-inc.com/api/code',
+      ANTHROPIC_AUTH_TOKEN: apiKey,
+      ANTHROPIC_MODEL: 'qwen3-coder-plus',
+      ANTHROPIC_SMALL_FAST_MODEL: 'qwen3-coder-plus'
+    }
+
+    // Merge settings: preserve existing fields, update only env section
+    const mergedSettings = {
+      ...existingSettings,
+      env: {
+        ...existingSettings.env,
+        ...newEnvConfig
+      }
+    }
+
+    console.log('Merged Claude settings:', JSON.stringify(mergedSettings, null, 2))
+
+    // Write merged settings to file
+    try {
+      await fs.writeFile(claudeSettingsPath, JSON.stringify(mergedSettings, null, 2), 'utf-8')
       console.log('Successfully saved Claude configuration to ~/.claude/settings.json')
     } catch (fileError) {
       const errorMsg = fileError instanceof Error ? fileError.message : String(fileError)
