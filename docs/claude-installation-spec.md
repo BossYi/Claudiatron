@@ -7,6 +7,7 @@
 ## 平台支持
 
 支持以下操作系统：
+
 - **Windows**：Windows 10/11（x64 和 arm64）
 - **macOS**：macOS 10.15+ （Intel 和 Apple Silicon）
 - **Linux**：主流发行版（Ubuntu、CentOS、Fedora 等）
@@ -16,6 +17,7 @@
 ### 前置要求
 
 确保系统已安装 Node.js（版本 16 或更高版本）：
+
 ```bash
 node --version
 npm --version
@@ -24,6 +26,7 @@ npm --version
 ### 安装 Claude Code
 
 使用 npm 全局安装 Claude Code：
+
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
@@ -31,6 +34,7 @@ npm install -g @anthropic-ai/claude-code
 ### 验证安装
 
 安装完成后验证是否成功：
+
 ```bash
 claude --version
 ```
@@ -42,6 +46,7 @@ claude --version
 ### 设置 API 密钥
 
 安装完成后，需要配置 API 密钥：
+
 ```bash
 claude configure
 ```
@@ -51,12 +56,14 @@ claude configure
 ### 配置文件位置
 
 配置文件会自动创建在以下位置：
+
 - **Windows**：`%USERPROFILE%\.claude\settings.json`
 - **macOS/Linux**：`~/.claude/settings.json`
 
 ### 验证配置
 
 测试配置是否正确：
+
 ```bash
 claude test-connection
 ```
@@ -68,6 +75,7 @@ claude test-connection
 ### 创建项目
 
 创建新的 Claude Code 项目：
+
 ```bash
 claude init my-project
 cd my-project
@@ -76,6 +84,7 @@ cd my-project
 ### 开始对话
 
 启动 Claude Code 会话：
+
 ```bash
 claude chat
 ```
@@ -111,6 +120,7 @@ A: 确认密钥正确，检查账户余额和权限。
 ### 更新 Claude Code
 
 检查并更新到最新版本：
+
 ```bash
 npm update -g @anthropic-ai/claude-code
 ```
@@ -118,6 +128,7 @@ npm update -g @anthropic-ai/claude-code
 ### 查看版本
 
 检查当前版本：
+
 ```bash
 claude --version
 ```

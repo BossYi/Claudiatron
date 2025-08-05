@@ -113,18 +113,19 @@ export class AoneCredentialsService {
   async getGlobalCredentials(): Promise<AoneAuthInfo | null> {
     try {
       const repository = await this.getRepository()
-      const credentials = await repository.findOne({
-        order: { created_at: 'DESC' }
+      const credentials = await repository.find({
+        order: { created_at: 'DESC' },
+        take: 1
       })
 
-      if (!credentials) {
+      if (!credentials || credentials.length === 0) {
         return null
       }
 
-      const decryptedToken = this.decrypt(credentials.private_token)
+      const decryptedToken = this.decrypt(credentials[0].private_token)
 
       return {
-        domainAccount: credentials.domain_account,
+        domainAccount: credentials[0].domain_account,
         privateToken: decryptedToken
       }
     } catch (error) {
@@ -153,11 +154,17 @@ export class AoneCredentialsService {
   async getCredentialsInfo(): Promise<Omit<AoneCredentials, 'private_token'> | null> {
     try {
       const repository = await this.getRepository()
-      const credentials = await repository.findOne({
+      const credentials = await repository.find({
         select: ['id', 'domain_account', 'created_at', 'updated_at'],
-        order: { created_at: 'DESC' }
+        order: { created_at: 'DESC' },
+        take: 1
       })
-      return credentials
+
+      if (!credentials || credentials.length === 0) {
+        return null
+      }
+
+      return credentials[0]
     } catch (error) {
       console.error('Failed to get credentials info:', error)
       return null

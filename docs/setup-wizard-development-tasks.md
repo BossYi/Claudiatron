@@ -15,6 +15,7 @@
 ## 技术架构设计
 
 ### 组件架构
+
 ```
 SetupWizard/
 ├── SetupWizardMain.tsx           # 主向导容器组件
@@ -51,6 +52,7 @@ src/main/
 ```
 
 ### 状态管理设计
+
 ```typescript
 interface SetupWizardState {
   currentStep: 1 | 2 | 3 | 4 | 5
@@ -79,10 +81,11 @@ interface SetupWizardState {
 ```
 
 ### IPC API扩展
+
 ```typescript
 // src/main/api/setupWizard.ts 需要实现的接口
 - setup-wizard-get-state
-- setup-wizard-save-state  
+- setup-wizard-save-state
 - setup-wizard-detect-environment
 - setup-wizard-install-dependencies
 - setup-wizard-validate-claude-config
@@ -124,6 +127,7 @@ interface SetupWizardState {
 ### ✅ 阶段1：基础架构和文档 (2-3天) [已完成]
 
 #### ✅ 任务1.1: 创建TypeScript类型定义 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/types/setupWizard.ts`
 - **描述**: 定义设置向导相关的所有TypeScript类型
@@ -135,7 +139,8 @@ interface SetupWizardState {
 - **验收标准**: ✅ 类型定义完整，与现有类型系统兼容
 
 #### ✅ 任务1.2: 设计数据库架构 [已完成]
-- **优先级**: 高  
+
+- **优先级**: 高
 - **文件**: `src/main/database/services/SetupWizardService.ts`
 - **描述**: 扩展现有数据库实体以支持向导状态持久化
 - **交付物**:
@@ -147,6 +152,7 @@ interface SetupWizardState {
 ### ✅ 阶段2：状态管理和数据层 (2-3天) [已完成]
 
 #### ✅ 任务2.1: 实现状态管理钩子 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/hooks/useSetupWizardState.ts`
 - **描述**: 创建React状态管理钩子，处理向导状态
@@ -158,6 +164,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 状态管理逻辑完整，支持复杂状态操作
 
 #### ✅ 任务2.2: 实现持久化钩子 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/hooks/useSetupWizardPersist.ts`
 - **描述**: 处理向导状态的持久化和恢复
@@ -168,6 +175,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 持久化机制稳定，支持中断恢复
 
 #### ✅ 任务2.3: 创建主进程API处理器 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/api/setupWizard.ts`
 - **描述**: 实现设置向导相关的IPC API处理器
@@ -181,6 +189,7 @@ interface SetupWizardState {
 ### ✅ 阶段3：核心组件开发 (4-5天) [已完成]
 
 #### ✅ 任务3.1: 创建主向导容器 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/components/SetupWizard/SetupWizardMain.tsx`
 - **描述**: 实现设置向导的主容器组件
@@ -192,6 +201,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 容器组件功能完整，用户体验流畅
 
 #### ✅ 任务3.2: 实现步骤指示器组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/components/StepIndicator.tsx`
 - **描述**: 显示当前步骤和完成进度
@@ -202,6 +212,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 指示器清晰直观，状态显示准确
 
 #### ✅ 任务3.3: 实现欢迎步骤组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/steps/WelcomeStep.tsx`
 - **描述**: 产品介绍和用户信心建立
@@ -213,6 +224,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 界面友好，能有效建立用户信心
 
 #### ✅ 任务3.4: 实现环境检测步骤组件 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/components/SetupWizard/steps/EnvironmentDetectionStep.tsx`
 - **描述**: 环境检测和自动安装编排
@@ -225,6 +237,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 检测准确，安装流程自动化
 
 #### ✅ 任务3.5: 实现Claude配置步骤组件 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/components/SetupWizard/steps/ClaudeConfigurationStep.tsx`
 - **描述**: Claude Code API配置和验证
@@ -238,6 +251,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 配置自动化，连接验证准确
 
 #### ✅ 任务3.6: 实现代码库导入步骤组件 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/components/SetupWizard/steps/RepositoryImportStep.tsx`
 - **描述**: 引导式Git克隆流程
@@ -249,6 +263,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 克隆流程安全，用户操作简单
 
 #### ✅ 任务3.7: 实现完成步骤组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/steps/CompletionStep.tsx`
 - **描述**: 设置完成和使用引导
@@ -260,6 +275,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 完成页面信息丰富，过渡自然
 
 #### ✅ 任务3.8: 实现共享组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/components/`
 - **描述**: 开发所有共享组件
@@ -272,6 +288,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 所有共享组件功能完整，可复用性强
 
 #### ✅ 任务3.9: 主应用集成 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/App.tsx`, `src/renderer/src/lib/api.ts`
 - **描述**: 设置向导与主应用的完整集成
@@ -285,6 +302,7 @@ interface SetupWizardState {
 ### ✅ 阶段4：环境检测和自动安装功能 (5-6天) [已完成]
 
 #### ✅ 任务4.1: 实现Claude Code自动安装系统 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/installation/ClaudeCodeInstallationManager.ts`
 - **描述**: Claude Code的自动下载、安装和配置系统
@@ -297,6 +315,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 安装流程顺畅，依赖处理正确
 
 #### ✅ 任务4.2: 实现Git自动安装系统 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/installation/GitInstallationManager.ts`
 - **描述**: Git的自动下载、安装和配置系统
@@ -308,6 +327,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 安装成功率高，用户体验流畅
 
 #### ✅ 任务4.3: 实现Git检测服务 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/detection/GitDetectionService.ts`
 - **描述**: 增强版Git环境检测，支持自动安装决策
@@ -319,6 +339,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 检测准确，支持安装决策
 
 #### ✅ 任务4.4: 创建Git安装进度组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/components/GitInstallProgress.tsx`
 - **描述**: Git安装过程的用户界面组件
@@ -330,6 +351,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 界面友好，进度反馈准确
 
 #### ✅ 任务4.5: 实现Node.js检测和安装服务 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/installation/NodeJsInstallationManager.ts`
 - **描述**: Node.js的自动检测、下载和安装管理
@@ -342,6 +364,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ Node.js安装成功，npm可用
 
 #### ✅ 任务4.6: 创建Claude Code安装进度组件 [已完成]
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/components/ClaudeInstallProgress.tsx`
 - **描述**: Claude Code安装过程的用户界面组件
@@ -354,6 +377,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 安装过程透明，用户体验良好
 
 #### ✅ 任务4.7: 基础安装架构开发 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/installation/BaseInstallationManager.ts`
 - **描述**: 通用安装管理器抽象基类
@@ -365,6 +389,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 基础设施完整，为具体安装器提供统一框架
 
 #### ✅ 任务4.8: 增强检测服务开发 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/detection/NodeJsDetectionService.ts`
 - **描述**: Node.js检测服务和环境分析
@@ -376,6 +401,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 检测准确，支持安装决策
 
 #### ✅ 任务4.9: 仓库管理服务开发 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/services/RepositoryImportService.ts`
 - **描述**: 智能化的Git仓库导入和项目配置系统
@@ -388,11 +414,12 @@ interface SetupWizardState {
 - **验收标准**: ✅ 导入流程智能，配置准确
 
 #### ✅ 任务4.10: API集成和UI完善 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/main/api/setupWizard.ts`, UI组件
 - **描述**: 将所有安装管理器连接到API层和优化用户界面
 - **功能要求**:
-  - ✅ 将现有占位符API连接到实际的安装管理器  
+  - ✅ 将现有占位符API连接到实际的安装管理器
   - ✅ 实现实时进度报告和IPC通信
   - ✅ 完善错误处理和日志记录系统
   - ✅ 确保API响应格式与UI组件完全兼容
@@ -401,16 +428,18 @@ interface SetupWizardState {
 ### 阶段5：配置和集成功能 (3-4天)
 
 #### 任务5.1: 实现Claude API配置验证
+
 - **优先级**: 高
 - **描述**: API连接测试和配置保存
 - **功能要求**:
   - 连接测试逻辑
   - 错误诊断
-  - 安全存储集成  
+  - 安全存储集成
   - 配置文件生成
 - **验收标准**: 验证准确，存储安全
 
 #### 任务5.2: 实现仓库导入服务
+
 - **优先级**: 高
 - **文件**: `src/main/services/RepositoryImportService.ts`
 - **描述**: 智能化的Git仓库导入和项目配置系统
@@ -422,6 +451,7 @@ interface SetupWizardState {
 - **验收标准**: 导入流程智能，配置准确
 
 #### 任务5.3: 实现项目自动导入
+
 - **优先级**: 中
 - **描述**: 克隆完成后的项目集成
 - **功能要求**:
@@ -433,6 +463,7 @@ interface SetupWizardState {
 ### 阶段6：应用集成和用户体验 (2-3天)
 
 #### ✅ 任务6.1: 集成到主应用流程 [已完成]
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/App.tsx`
 - **描述**: 设置向导与主应用的集成
@@ -443,6 +474,7 @@ interface SetupWizardState {
 - **验收标准**: ✅ 集成seamless，逻辑正确
 
 #### 任务6.2: 添加国际化支持
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/i18n/locales/zh-CN/setupWizard.json`
 - **描述**: 中英文翻译和本地化
@@ -453,6 +485,7 @@ interface SetupWizardState {
 - **验收标准**: 翻译准确，本地化完整
 
 #### 任务6.3: 实现错误处理和恢复
+
 - **优先级**: 高
 - **文件**: `src/renderer/src/components/SetupWizard/components/ErrorHandler.tsx`
 - **描述**: 用户友好的错误处理系统
@@ -466,6 +499,7 @@ interface SetupWizardState {
 ### 阶段7：测试和优化 (2-3天)
 
 #### 任务7.1: 创建单元测试
+
 - **优先级**: 中
 - **文件**: `src/renderer/src/components/SetupWizard/__tests__/`
 - **描述**: 组件和逻辑的单元测试
@@ -476,6 +510,7 @@ interface SetupWizardState {
 - **验收标准**: 测试覆盖率 > 80%
 
 #### 任务7.2: 集成测试和用户测试
+
 - **优先级**: 中
 - **描述**: 完整流程测试和可用性测试
 - **测试内容**:
@@ -485,6 +520,7 @@ interface SetupWizardState {
 - **验收标准**: 功能完整，用户体验良好
 
 #### 任务7.3: 性能优化和最终打磨
+
 - **优先级**: 中
 - **描述**: 性能优化和用户体验打磨
 - **优化内容**:
@@ -497,6 +533,7 @@ interface SetupWizardState {
 ## 技术实施细节
 
 ### 现有系统集成点
+
 1. **复用ClaudeDetectionManager**: 扩展现有检测系统而不是重写
 2. **利用AppSettings数据库**: 使用现有数据库基础设施
 3. **集成shadcn/ui组件**: 保持UI设计一致性
@@ -504,6 +541,7 @@ interface SetupWizardState {
 5. **集成i18n系统**: 使用现有国际化基础设施
 
 ### 安全设计原则
+
 1. **自动化安装**: 安全的自动下载和安装Git、Node.js、Claude Code，减少用户手动操作
 2. **依赖链管理**: 智能处理软件依赖关系，确保安装顺序正确
 3. **严格输入验证**: URL、路径、配置参数的安全验证
@@ -512,6 +550,7 @@ interface SetupWizardState {
 6. **权限控制**: 最小权限原则，仅在必要时请求系统权限
 
 ### 用户体验重点
+
 1. **零配置理念**: 自动安装所有必需软件，无需用户手动下载
 2. **智能依赖处理**: 自动解决Node.js和Claude Code的依赖关系
 3. **渐进式引导**: 每步只关注一个核心任务
@@ -523,18 +562,21 @@ interface SetupWizardState {
 ## 质量保证
 
 ### 代码质量标准
+
 - TypeScript严格模式
 - ESLint规则遵循
 - 代码注释完整
 - 错误处理健壮
 
 ### 测试要求
+
 - 单元测试覆盖率 > 80%
 - 集成测试覆盖主要流程
 - 用户体验测试验收
 - 跨平台兼容性测试
 
 ### 文档要求
+
 - API文档完整
 - 用户使用手册
 - 开发维护文档
@@ -543,11 +585,13 @@ interface SetupWizardState {
 ## 风险评估
 
 ### 技术风险
+
 - **跨平台兼容性**: 不同操作系统的环境检测差异
 - **网络连接问题**: API连接和Git克隆的网络依赖
 - **用户权限问题**: 文件系统访问和安装权限
 
 ### 缓解措施
+
 - 充分的跨平台测试
 - 离线模式和重试机制
 - 清晰的权限指导和错误处理
@@ -557,7 +601,7 @@ interface SetupWizardState {
 ### 总体时间估算: 21-28个工作日
 
 - **阶段1**: 2-3天 (基础架构)
-- **阶段2**: 2-3天 (数据层)  
+- **阶段2**: 2-3天 (数据层)
 - **阶段3**: 4-5天 (核心组件)
 - **阶段4**: 5-6天 (环境检测和自动安装)
 - **阶段5**: 3-4天 (配置集成)
@@ -565,13 +609,16 @@ interface SetupWizardState {
 - **阶段7**: 3-4天 (测试优化)
 
 ### 里程碑
+
 1. ✅ **Week 1**: 基础架构和状态管理完成 [已完成]
-2. ✅ **Week 2**: 核心组件开发完成 [已完成] 
+2. ✅ **Week 2**: 核心组件开发完成 [已完成]
 3. ✅ **Week 3**: 自动安装功能和配置集成完成 [已完成]
 4. 🔄 **Week 4**: 应用集成、测试优化和最终交付 [进行中]
 
 ### 新增时间说明
+
 由于引入Git和Claude Code自动安装功能，相比原计划增加了3-4天的开发时间：
+
 - Git自动安装系统开发：+1天
 - Node.js检测和安装系统：+1天
 - Claude Code自动安装和配置：+1天
@@ -581,18 +628,21 @@ interface SetupWizardState {
 ## 交付成果
 
 ### 代码交付
+
 1. 完整的设置向导系统代码
 2. 扩展的主进程API处理器
 3. 数据库架构扩展
 4. 国际化资源文件
 
 ### 文档交付
+
 1. 技术架构文档
 2. API接口文档
 3. 用户使用手册
 4. 开发维护文档
 
 ### 测试交付
+
 1. 自动化测试套件
 2. 用户体验测试报告
 3. 性能测试报告

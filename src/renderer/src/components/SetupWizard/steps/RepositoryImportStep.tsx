@@ -430,6 +430,19 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                         <span>认证信息将被加密存储在本地，用于后续的仓库更新操作</span>
                       </div>
+                      <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>
+                          <a
+                            href="https://code.alibaba-inc.com/profile/account"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            通过此链接获取个人Private-Token
+                          </a>
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -639,22 +652,6 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">所有者:</span>
                               <span>{validationResult.repoInfo.owner}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {validationResult.projectInfo && (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">项目类型:</span>
-                            <Badge variant="outline">{validationResult.projectInfo.type}</Badge>
-                          </div>
-                          {validationResult.projectInfo.description && (
-                            <div>
-                              <span className="text-muted-foreground">描述:</span>
-                              <p className="text-xs mt-1 text-muted-foreground">
-                                {validationResult.projectInfo.description}
-                              </p>
                             </div>
                           )}
                         </>

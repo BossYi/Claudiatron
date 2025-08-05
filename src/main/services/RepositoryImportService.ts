@@ -10,7 +10,7 @@
  */
 
 import { promises as fs } from 'fs'
-import { join, basename, dirname } from 'path'
+import { join, basename } from 'path'
 import { EventEmitter } from 'events'
 import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
@@ -397,32 +397,58 @@ export class RepositoryImportService extends EventEmitter {
       }
 
       // 3. 准备本地路径
-      const localPath = request.localPath || join(this.claudeProjectsDir, validation.repoName)
-      await this.prepareLocalPath(localPath)
+      const parentDir = request.localPath || this.claudeProjectsDir
+      const localPath = join(parentDir, validation.repoName)
 
-      // 4. 执行克隆
-      const cloneResult = await this.performGitClone(
-        actualCloneUrl,
-        localPath,
-        request.options || {},
-        aoneAuthToUse // 传递实际使用的认证信息用于日志清理
-      )
+      // 准备父目录（允许不为空）
+      await this.prepareLocalPath(parentDir)
 
-      if (!cloneResult.success) {
-        const sanitizedError = this.sanitizeLogMessage(
-          cloneResult.error || '克隆失败',
-          aoneAuthToUse
-        )
-        return {
-          success: false,
-          error: sanitizedError
+      // 检查目标仓库目录是否已存在
+      let needsClone = true
+      try {
+        const stats = await fs.stat(localPath)
+        if (stats.isDirectory()) {
+          const files = await fs.readdir(localPath)
+          if (files.length > 0) {
+            // 目录已存在且不为空，认为项目已经导入成功
+            console.log(`仓库目录已存在，跳过克隆: ${localPath}`)
+            needsClone = false
+          }
         }
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') {
+          throw error
+        }
+        // 目录不存在是正常的，需要执行克隆
+        needsClone = true
       }
 
-      // 4. 分析项目
-      const projectInfo = await this.analyzeClonedProject(localPath, validation)
+      // 4. 执行克隆（如果需要）
+      if (needsClone) {
+        const cloneResult = await this.performGitClone(
+          actualCloneUrl,
+          localPath,
+          request.options || {},
+          aoneAuthToUse // 传递实际使用的认证信息用于日志清理
+        )
 
-      console.log('仓库克隆完成:', localPath)
+        if (!cloneResult.success) {
+          const sanitizedError = this.sanitizeLogMessage(
+            cloneResult.error || '克隆失败',
+            aoneAuthToUse
+          )
+          return {
+            success: false,
+            error: sanitizedError
+          }
+        }
+        console.log('仓库克隆完成:', localPath)
+      } else {
+        console.log('项目已存在，无需克隆:', localPath)
+      }
+
+      // 5. 分析项目
+      const projectInfo = await this.analyzeClonedProject(localPath, validation)
 
       return {
         success: true,
@@ -448,16 +474,16 @@ export class RepositoryImportService extends EventEmitter {
       try {
         const stats = await fs.stat(localPath)
         if (stats.isDirectory()) {
-          // 检查是否为空目录
-          const files = await fs.readdir(localPath)
-          if (files.length > 0) {
-            throw new Error(`目标目录不为空: ${localPath}`)
-          }
+          // 允许目录不为空，用户可以选择任意目录作为父目录
+          console.log(`目标目录已存在: ${localPath}`)
+        } else {
+          throw new Error(`路径已存在但不是目录: ${localPath}`)
         }
       } catch (error: any) {
         if (error.code === 'ENOENT') {
-          // 目录不存在，创建父目录
-          await fs.mkdir(dirname(localPath), { recursive: true })
+          // 目录不存在，创建目录
+          await fs.mkdir(localPath, { recursive: true })
+          console.log(`创建目录: ${localPath}`)
         } else {
           throw error
         }
