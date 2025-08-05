@@ -74,7 +74,7 @@ linux:
   synopsis: Claude Code GUI - 一个基于 Electron 的 Claude Code 图形界面工具
   description: |
     Catalyst 是一个基于 Electron + React + TypeScript 的桌面应用，
-    作为 Claude Code 的 GUI 工具，提供完整的 Claude Code 集成功能, 通过Catalyst, 将复杂的 Claude Code 功能通过图形界面"折射"成易懂的彩色光谱
+    作为 Claude Code 的 GUI 工具，提供完整的 Claude Code 集成功能, 通过Catalyst, 加速开发过程, 让开发更简单
 appImage:
   artifactName: ${name}-${version}.${ext}
   category: Development
