@@ -470,7 +470,10 @@ export class ClaudeCodeInstallationManager extends BaseInstallationManager {
       const configDir = join(os.homedir(), '.claude')
       await fs.mkdir(configDir, { recursive: true })
 
-      // 3. 写入配置文件
+      // 3. 创建默认 CLAUDE.md 文件（如果不存在）
+      await this.createDefaultClaudeMd(configDir)
+
+      // 4. 写入配置文件
       const configPath = join(configDir, 'config.json')
       const config = {
         api_key: apiKey,
@@ -480,12 +483,12 @@ export class ClaudeCodeInstallationManager extends BaseInstallationManager {
 
       await fs.writeFile(configPath, JSON.stringify(config, null, 2))
 
-      // 4. 设置文件权限（仅所有者可读写）
+      // 5. 设置文件权限（仅所有者可读写）
       if (process.platform !== 'win32') {
         await fs.chmod(configPath, 0o600)
       }
 
-      // 5. 验证配置
+      // 6. 验证配置
       try {
         // 这里可以添加 API 连接测试
         // const testResult = await execAsync('claude test-connection', { timeout: 10000 })
@@ -541,6 +544,32 @@ export class ClaudeCodeInstallationManager extends BaseInstallationManager {
     } catch (error) {
       this.log(`检查更新时出错: ${error}`, 'warning')
       return { updateAvailable: false }
+    }
+  }
+
+  /**
+   * 创建默认 CLAUDE.md 文件
+   */
+  private async createDefaultClaudeMd(configDir: string): Promise<void> {
+    try {
+      const claudeMdPath = join(configDir, 'CLAUDE.md')
+
+      // 检查文件是否已存在
+      try {
+        await fs.access(claudeMdPath)
+        this.log('CLAUDE.md 文件已存在，跳过创建', 'debug')
+        return
+      } catch {
+        // 文件不存在，继续创建
+      }
+
+      // 读取默认模板文件
+      const templatePath = join(__dirname, '..', 'templates', 'DEFAULT_CLAUDE.md')
+      const defaultContent = await fs.readFile(templatePath, 'utf-8')
+      await fs.writeFile(claudeMdPath, defaultContent, 'utf-8')
+      this.log('已创建默认 CLAUDE.md 文件', 'info')
+    } catch (error) {
+      this.log(`创建默认 CLAUDE.md 文件失败: ${error}`, 'warning')
     }
   }
 
