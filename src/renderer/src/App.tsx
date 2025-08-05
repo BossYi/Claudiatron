@@ -96,6 +96,10 @@ function App() {
   useEffect(() => {
     const handleSessionSelected = (event: CustomEvent) => {
       const { session } = event.detail
+      console.log('[App] handleSessionSelected:', {
+        sessionId: session?.id,
+        currentView: view
+      })
       setSelectedSession(session)
       handleViewChange('claude-code-session')
     }
@@ -183,13 +187,27 @@ function App() {
    * Handles view changes with navigation protection
    */
   const handleViewChange = (newView: View) => {
+    console.log('[App] handleViewChange called:', {
+      currentView: view,
+      newView,
+      isClaudeStreaming,
+      activeClaudeSessionId,
+      selectedSession: selectedSession?.id
+    })
+
     // Check if we're navigating away from an active Claude session
     if (view === 'claude-code-session' && isClaudeStreaming && activeClaudeSessionId) {
       const shouldLeave = window.confirm(tErrors('claude.stillResponding'))
 
       if (!shouldLeave) {
+        console.log('[App] User cancelled navigation from claude-code-session')
         return
       }
+    }
+
+    // Debug log before view change
+    if (view === 'claude-code-session' && newView !== 'claude-code-session') {
+      console.log('[App] Navigating away from claude-code-session to:', newView)
     }
 
     setView(newView)
@@ -415,10 +433,12 @@ function App() {
           <ClaudeCodeSession
             session={selectedSession || undefined}
             onBack={() => {
+              console.log('[App] ClaudeCodeSession onBack called')
               setSelectedSession(null)
               handleViewChange('projects')
             }}
             onStreamingChange={(isStreaming, sessionId) => {
+              console.log('[App] onStreamingChange:', { isStreaming, sessionId })
               setIsClaudeStreaming(isStreaming)
               setActiveClaudeSessionId(sessionId)
             }}

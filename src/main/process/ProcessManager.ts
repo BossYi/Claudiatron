@@ -299,6 +299,39 @@ export class ProcessManager extends EventEmitter {
           'length:',
           output.length
         )
+
+        // Enhanced debug logging for Claude Code sessions
+        const handle = this.processes.get(runId)
+        if (handle?.info.agentId === 0 && handle?.info.agentName?.includes('Claude Code')) {
+          // Log first 200 chars of output for debugging
+          console.log(
+            '[ProcessManager] Claude Code raw output preview:',
+            output.substring(0, 200).replace(/\n/g, '\\n')
+          )
+
+          // Try to parse and check for sessionId in the output
+          const lines = output.split('\n').filter((line) => line.trim())
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line)
+              console.log('[ProcessManager] Parsed JSON line:', {
+                type: parsed.type,
+                subtype: parsed.subtype,
+                hasSessionId: !!parsed.session_id,
+                sessionId: parsed.session_id
+              })
+
+              if (parsed.type === 'system' && parsed.subtype === 'init' && parsed.session_id) {
+                console.log(`[ProcessManager] Found sessionId in output: ${parsed.session_id}`)
+                // Auto-update sessionId
+                this.updateSessionId(runId, parsed.session_id)
+              }
+            } catch {
+              // Not JSON or parsing error, skip
+            }
+          }
+        }
+
         this.appendLiveOutput(runId, output)
 
         this.sendAgentEvent(runId, 'agent-output', output)
@@ -714,38 +747,30 @@ export class ProcessManager extends EventEmitter {
       isClaudeCode: handle?.info.agentId === 0 && handle?.info.agentName?.includes('Claude Code')
     })
 
-    // 针对 Claude Code 会话，使用会话特定的事件名称
+    // 统一使用 runId 作为事件通道标识，简化消息路由
     if (handle?.info.agentId === 0 && handle?.info.agentName?.includes('Claude Code')) {
+      // Claude Code 会话：使用 claude-* 前缀 + runId
       const claudeEventType = eventType.replace('agent-', 'claude-')
+      const runSpecificEvent = `${claudeEventType}:${runId}`
 
-      if (handle.info.sessionId) {
-        // 有 sessionId，发送会话特定事件
-        const sessionSpecificEvent = `${claudeEventType}:${handle.info.sessionId}`
-        console.log(
-          `[ProcessManager] Sending session-specific Claude event: ${sessionSpecificEvent}`,
-          data?.length ? `data length: ${data.length}` : data
-        )
-        if (this.browserWindow && !this.browserWindow.isDestroyed()) {
-          this.browserWindow.webContents.send(sessionSpecificEvent, data)
-        }
-      } else {
-        // 暂时没有 sessionId，发送通用事件作为临时方案
-        console.log(
-          `[ProcessManager] Sending temporary generic Claude event: ${claudeEventType} (no sessionId yet)`,
-          data?.length ? `data length: ${data.length}` : data
-        )
-        if (this.browserWindow && !this.browserWindow.isDestroyed()) {
-          this.browserWindow.webContents.send(claudeEventType, data)
-        }
-      }
-    } else {
-      // 普通代理事件，使用带 runId 的格式
       console.log(
-        `[ProcessManager] Sending event: ${eventType}:${runId}`,
+        `[ProcessManager] Sending runId-specific Claude event: ${runSpecificEvent}`,
         data?.length ? `data length: ${data.length}` : data
       )
+
       if (this.browserWindow && !this.browserWindow.isDestroyed()) {
-        this.browserWindow.webContents.send(`${eventType}:${runId}`, data)
+        this.browserWindow.webContents.send(runSpecificEvent, data)
+      }
+    } else {
+      // 普通代理事件：使用 agent-* 前缀 + runId
+      const runSpecificEvent = `${eventType}:${runId}`
+      console.log(
+        `[ProcessManager] Sending runId-specific agent event: ${runSpecificEvent}`,
+        data?.length ? `data length: ${data.length}` : data
+      )
+
+      if (this.browserWindow && !this.browserWindow.isDestroyed()) {
+        this.browserWindow.webContents.send(runSpecificEvent, data)
       }
     }
 
@@ -760,8 +785,21 @@ export class ProcessManager extends EventEmitter {
   updateSessionId(runId: number, sessionId: string): void {
     const handle = this.processes.get(runId)
     if (handle) {
+      const previousSessionId = handle.info.sessionId
       handle.info.sessionId = sessionId
-      console.log(`[ProcessManager] Updated sessionId for runId ${runId}: ${sessionId}`)
+      console.log(`[ProcessManager] Updated sessionId for runId ${runId}:`, {
+        previousSessionId,
+        newSessionId: sessionId,
+        agentName: handle.info.agentName
+      })
+
+      // Ensure we don't emit unnecessary events that might cause frontend re-renders
+      // Only emit if there was a real change
+      if (previousSessionId !== sessionId) {
+        console.log(
+          `[ProcessManager] SessionId actually changed from ${previousSessionId} to ${sessionId}`
+        )
+      }
     } else {
       console.warn(`[ProcessManager] Cannot update sessionId: runId ${runId} not found`)
     }

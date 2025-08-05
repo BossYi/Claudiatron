@@ -130,38 +130,17 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   )
   const isMountedRef = useRef(true)
   const isListeningRef = useRef(false)
+  const effectiveSessionRef = useRef<Session | null>(null)
 
-  // Enhanced listener management for intelligent migration
-  const listenersRef = useRef<{
-    generic: {
-      output: UnlistenFn | null
-      error: UnlistenFn | null
-      complete: UnlistenFn | null
-    }
-    sessionSpecific: {
-      output: UnlistenFn | null
-      error: UnlistenFn | null
-      complete: UnlistenFn | null
-      confirmed: boolean
-      messageCount: number
-    }
-    transitionState: 'generic-only' | 'transitioning' | 'specific-only'
-    checkInterval: NodeJS.Timeout | null
-    lastMessageTime: number
-    processedHashes: Set<string>
+  // Simple listener management using currentRunId
+  const currentListenersRef = useRef<{
+    output: UnlistenFn | null
+    error: UnlistenFn | null
+    complete: UnlistenFn | null
   }>({
-    generic: { output: null, error: null, complete: null },
-    sessionSpecific: {
-      output: null,
-      error: null,
-      complete: null,
-      confirmed: false,
-      messageCount: 0
-    },
-    transitionState: 'generic-only',
-    checkInterval: null,
-    lastMessageTime: Date.now(),
-    processedHashes: new Set()
+    output: null,
+    error: null,
+    complete: null
   })
 
   // Keep ref in sync with state
@@ -169,19 +148,31 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     queuedPromptsRef.current = queuedPrompts
   }, [queuedPrompts])
 
-  // Get effective session info (from prop or extracted) - use useMemo to ensure it updates
+  // Get effective session info - prefer detected sessionId over prop
   const effectiveSession = useMemo(() => {
-    if (session) return session
-    if (extractedSessionInfo) {
+    // If we have detected a sessionId from the message stream, use it
+    if (claudeSessionId) {
+      const projectId =
+        extractedSessionInfo?.projectId ||
+        session?.project_id ||
+        projectPath.replace(/[^a-zA-Z0-9]/g, '-')
       return {
-        id: extractedSessionInfo.sessionId,
-        project_id: extractedSessionInfo.projectId,
+        id: claudeSessionId, // Always use the detected sessionId
+        project_id: projectId,
         project_path: projectPath,
-        created_at: Date.now()
+        todo_data: session?.todo_data || null,
+        created_at: session?.created_at || Date.now()
       } as Session
     }
+    // Otherwise fall back to the session prop
+    if (session) return session
     return null
-  }, [session, extractedSessionInfo, projectPath])
+  }, [session, claudeSessionId, extractedSessionInfo, projectPath])
+
+  // Keep effectiveSessionRef in sync
+  useEffect(() => {
+    effectiveSessionRef.current = effectiveSession
+  }, [effectiveSession])
 
   // Filter out messages that shouldn't be displayed
   const displayableMessages = useMemo(() => {
@@ -302,8 +293,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   // Load session history if resuming
   useEffect(() => {
     if (session) {
-      // Set the claudeSessionId immediately when we have a session
-      setClaudeSessionId(session.id)
+      // Don't set the sessionId here - wait for it from the message stream
+      // This is important because Claude Code may create a new sessionId on resume
+      console.log(
+        '[ClaudeCodeSession] Loading session history but not setting sessionId yet - will detect from stream'
+      )
 
       // Load session history first, then check for active session
       const initializeSession = async () => {
@@ -408,8 +402,12 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         if (activeSession) {
           // Session is still active, reconnect to its stream
           console.log('[ClaudeCodeSession] Found active session, reconnecting:', session.id)
-          // IMPORTANT: Set claudeSessionId before reconnecting
-          setClaudeSessionId(session.id)
+
+          // Don't set sessionId here - wait for it from the message stream
+          // Claude Code may create a new sessionId on resume
+          console.log(
+            '[ClaudeCodeSession] Not setting sessionId before reconnect - will detect from stream'
+          )
 
           // Don't add buffered messages here - they've already been loaded by loadSessionHistory
           // Just set up listeners for new messages
@@ -423,41 +421,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }
   }
 
-  // Generate message hash for deduplication
-  const generateMessageHash = (payload: string): string => {
-    return `${payload.substring(0, 100)}_${payload.length}_${Date.now()}`
-  }
-
-  // Unified message handler with source tracking and deduplication
+  // Simple message handler for runId-based events
   const handleStreamMessage = useCallback(
-    (payload: string, source: 'generic' | 'specific') => {
+    (payload: string) => {
       try {
         if (!isMountedRef.current) return
-
-        // Deduplication during transition phase
-        if (listenersRef.current.transitionState === 'transitioning') {
-          const messageHash = generateMessageHash(payload)
-          if (listenersRef.current.processedHashes.has(messageHash)) {
-            console.log(`[ClaudeCodeSession] Duplicate message skipped from ${source}`)
-            return
-          }
-          listenersRef.current.processedHashes.add(messageHash)
-
-          // Limit cache size
-          if (listenersRef.current.processedHashes.size > 500) {
-            const hashes = Array.from(listenersRef.current.processedHashes)
-            hashes.slice(0, 250).forEach((h) => listenersRef.current.processedHashes.delete(h))
-          }
-        }
-
-        // Track session-specific listener activity
-        if (source === 'specific') {
-          listenersRef.current.sessionSpecific.messageCount++
-          listenersRef.current.lastMessageTime = Date.now()
-          console.log(
-            `[ClaudeCodeSession] Session-specific message #${listenersRef.current.sessionSpecific.messageCount}`
-          )
-        }
 
         // Store raw JSONL
         setRawJsonlOutput((prev) => [...prev, payload])
@@ -465,20 +433,19 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         // Parse message
         const message = JSON.parse(payload) as ClaudeStreamMessage
 
-        // Filter messages from other sessions if we have a sessionId
-        if (claudeSessionId && message.session_id && message.session_id !== claudeSessionId) {
-          console.log(
-            `[ClaudeCodeSession] Filtered message from other session: ${message.session_id}`
-          )
-          return
-        }
+        console.log('[ClaudeCodeSession] Received message:', {
+          type: message.type,
+          subtype: message.subtype,
+          session_id: message.session_id,
+          runId: currentRunId
+        })
 
         setMessages((prev) => [...prev, message])
 
-        // Detect sessionId and start listener transition
+        // Update sessionId for display purposes (no longer used for routing)
         if (message.type === 'system' && message.subtype === 'init' && message.session_id) {
           if (!claudeSessionId || claudeSessionId !== message.session_id) {
-            console.log(`[ClaudeCodeSession] Detected sessionId: ${message.session_id}`)
+            console.log(`[ClaudeCodeSession] Updated sessionId: ${message.session_id}`)
             setClaudeSessionId(message.session_id)
 
             // Update backend with sessionId if we have runId
@@ -493,13 +460,10 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-')
               setExtractedSessionInfo({ sessionId: message.session_id, projectId })
             }
-
-            // Start listener transition
-            startListenerTransition(message.session_id)
           }
         }
       } catch (err) {
-        console.error(`[ClaudeCodeSession] Error processing message from ${source}:`, err, payload)
+        console.error(`[ClaudeCodeSession] Error processing message:`, err, payload)
       }
     },
     [claudeSessionId, currentRunId, projectPath, extractedSessionInfo]
@@ -508,152 +472,79 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   // Forward reference for processComplete function
   const processCompleteRef = useRef<(success: boolean) => Promise<void>>(null as any)
 
-  // Start listener transition to session-specific
-  const startListenerTransition = useCallback(
-    async (sessionId: string) => {
-      if (listenersRef.current.transitionState !== 'generic-only') {
-        console.log('[ClaudeCodeSession] Transition already in progress or completed')
-        return
-      }
+  // Simple cleanup function
+  const cleanupListeners = useCallback(() => {
+    console.log('[ClaudeCodeSession] Cleaning up listeners')
 
-      console.log(`[ClaudeCodeSession] Starting listener transition for session: ${sessionId}`)
-      listenersRef.current.transitionState = 'transitioning'
+    const { output, error, complete } = currentListenersRef.current
+    if (output) {
+      output()
+      currentListenersRef.current.output = null
+    }
+    if (error) {
+      error()
+      currentListenersRef.current.error = null
+    }
+    if (complete) {
+      complete()
+      currentListenersRef.current.complete = null
+    }
+
+    // Clean up old unlistenRefs if any
+    unlistenRefs.current.forEach((unlisten) => unlisten())
+    unlistenRefs.current = []
+
+    isListeningRef.current = false
+  }, [])
+
+  // Simple function to set up runId-based listeners
+  const setupRunIdListeners = useCallback(
+    async (runId: number) => {
+      console.log('[ClaudeCodeSession] Setting up runId-based listeners for:', runId)
+
+      // Clean up any existing listeners first
+      cleanupListeners()
 
       try {
-        // Add session-specific listeners
-        const outputUnlisten = await listen<string>(`claude-output:${sessionId}`, (event) =>
-          handleStreamMessage(event.payload, 'specific')
-        )
+        const outputUnlisten = await listen<string>(`claude-output:${runId}`, (event) => {
+          handleStreamMessage(event.payload)
+        })
 
-        const errorUnlisten = await listen<string>(`claude-error:${sessionId}`, (event) => {
-          console.error('Claude session error:', event.payload)
+        const errorUnlisten = await listen<string>(`claude-error:${runId}`, (event) => {
+          console.error('Claude error:', event.payload)
           setError(event.payload)
         })
 
-        const completeUnlisten = await listen<boolean>(
-          `claude-complete:${sessionId}`,
-          async (event) => {
-            console.log(`[ClaudeCodeSession] Session ${sessionId} completed:`, event.payload)
-            processCompleteRef.current?.(event.payload)
-          }
-        )
+        const completeUnlisten = await listen<boolean>(`claude-complete:${runId}`, (event) => {
+          console.log(`[ClaudeCodeSession] RunId ${runId} completed:`, event.payload)
+          processCompleteRef.current?.(event.payload)
+        })
 
-        listenersRef.current.sessionSpecific = {
+        // Store the listeners
+        currentListenersRef.current = {
           output: outputUnlisten,
           error: errorUnlisten,
-          complete: completeUnlisten,
-          confirmed: false,
-          messageCount: 0
+          complete: completeUnlisten
         }
 
-        // Start confirmation check
-        startConfirmationCheck()
+        isListeningRef.current = true
+        console.log('[ClaudeCodeSession] RunId-based listeners set up successfully')
       } catch (error) {
-        console.error('[ClaudeCodeSession] Failed to setup session-specific listeners:', error)
-        listenersRef.current.transitionState = 'generic-only'
+        console.error('[ClaudeCodeSession] Failed to setup runId-based listeners:', error)
       }
     },
-    [handleStreamMessage]
+    [handleStreamMessage, cleanupListeners]
   )
-
-  // Confirmation check logic
-  const startConfirmationCheck = useCallback(() => {
-    let checkCount = 0
-    const maxChecks = 50 // 5 seconds maximum
-
-    listenersRef.current.checkInterval = setInterval(() => {
-      checkCount++
-
-      const { sessionSpecific, generic, transitionState } = listenersRef.current
-
-      // Check if we received session-specific messages
-      if (sessionSpecific.messageCount > 0 && !sessionSpecific.confirmed) {
-        console.log(
-          `[ClaudeCodeSession] Session-specific listener confirmed after ${sessionSpecific.messageCount} messages`
-        )
-        sessionSpecific.confirmed = true
-      }
-
-      // Remove generic listeners after confirmation and stability period
-      if (sessionSpecific.confirmed && transitionState === 'transitioning') {
-        const timeSinceLastMessage = Date.now() - listenersRef.current.lastMessageTime
-
-        if (timeSinceLastMessage > 500) {
-          console.log('[ClaudeCodeSession] Removing generic listeners after confirmation')
-
-          // Remove generic listeners
-          if (generic.output) generic.output()
-          if (generic.error) generic.error()
-          if (generic.complete) generic.complete()
-
-          // Update state
-          listenersRef.current.generic = { output: null, error: null, complete: null }
-          listenersRef.current.transitionState = 'specific-only'
-          listenersRef.current.processedHashes.clear()
-
-          // Stop checking
-          if (listenersRef.current.checkInterval) {
-            clearInterval(listenersRef.current.checkInterval)
-            listenersRef.current.checkInterval = null
-          }
-
-          console.log('[ClaudeCodeSession] Listener transition completed successfully')
-        }
-      }
-
-      // Timeout protection
-      if (checkCount >= maxChecks && !sessionSpecific.confirmed) {
-        console.warn(
-          '[ClaudeCodeSession] Session-specific listener not confirmed, keeping both channels'
-        )
-        if (listenersRef.current.checkInterval) {
-          clearInterval(listenersRef.current.checkInterval)
-          listenersRef.current.checkInterval = null
-        }
-      }
-    }, 100)
-  }, [])
 
   const reconnectToSession = async (sessionId: string) => {
     console.log('[ClaudeCodeSession] Reconnecting to session:', sessionId)
 
-    // Prevent duplicate listeners
-    if (isListeningRef.current) {
-      console.log('[ClaudeCodeSession] Already listening to session, skipping reconnect')
-      return
-    }
+    // For reconnecting, we'll need the runId from an active process
+    // Since we don't have a runId yet, we'll wait for the first prompt to establish listeners
+    console.log('[ClaudeCodeSession] Will set up listeners when first prompt is sent')
 
-    // Clean up old listeners
-    cleanupListeners()
-
-    // Set the session ID
+    // Set sessionId for UI display
     setClaudeSessionId(sessionId)
-
-    // Mark as listening
-    isListeningRef.current = true
-
-    // For reconnection, try to set up session-specific listeners directly
-    if (sessionId) {
-      await startListenerTransition(sessionId)
-    } else {
-      // Fallback to generic listeners
-      const outputUnlisten = await listen<string>('claude-output', (event) =>
-        handleStreamMessage(event.payload, 'generic')
-      )
-      const errorUnlisten = await listen<string>('claude-error', (event) => {
-        console.error('Claude error:', event.payload)
-        setError(event.payload)
-      })
-      const completeUnlisten = await listen<boolean>('claude-complete', (event) => {
-        processCompleteRef.current?.(event.payload)
-      })
-
-      listenersRef.current.generic = {
-        output: outputUnlisten,
-        error: errorUnlisten,
-        complete: completeUnlisten
-      }
-    }
 
     // Mark as loading to show the session is active
     if (isMountedRef.current) {
@@ -710,86 +601,46 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setError(null)
       hasActiveSessionRef.current = true
 
-      // For resuming sessions, ensure we have the session ID
-      if (effectiveSession && !claudeSessionId) {
-        setClaudeSessionId(effectiveSession.id)
+      // Reset session state for new conversations
+      if (!effectiveSession) {
+        setClaudeSessionId(null)
+        setExtractedSessionInfo(null)
+        setIsFirstPrompt(true)
       }
 
-      // Only clean up and set up new listeners if not already listening
-      if (!isListeningRef.current) {
-        // Clean up any existing listeners
-        cleanupListeners()
-
-        // Mark as setting up listeners
-        isListeningRef.current = true
-
-        console.log('[ClaudeCodeSession] Setting up initial generic listeners')
-
-        // Set up generic listeners only at the start
-        const genericOutputUnlisten = await listen<string>('claude-output', (event) =>
-          handleStreamMessage(event.payload, 'generic')
-        )
-
-        const genericErrorUnlisten = await listen<string>('claude-error', (event) => {
-          console.log('[ClaudeCodeSession] Received claude-error event:', event.payload)
-          console.error('Claude error:', event.payload)
-          setError(event.payload)
-        })
-
-        const genericCompleteUnlisten = await listen<boolean>('claude-complete', (event) => {
-          console.log('[ClaudeCodeSession] Received claude-complete (generic):', event.payload)
-          processComplete(event.payload)
-        })
-
-        // Store generic listeners
-        listenersRef.current.generic = {
-          output: genericOutputUnlisten,
-          error: genericErrorUnlisten,
-          complete: genericCompleteUnlisten
+      // Add the user message immediately to the UI
+      const userMessage: ClaudeStreamMessage = {
+        type: 'user',
+        message: {
+          content: [
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
         }
+      }
+      setMessages((prev) => [...prev, userMessage])
 
-        listenersRef.current.transitionState = 'generic-only'
-
-        // If we already know the sessionId (resuming a session), start transition immediately
-        if (effectiveSession?.id && !isFirstPrompt) {
-          console.log(
-            '[ClaudeCodeSession] Starting immediate transition for known session:',
-            effectiveSession.id
-          )
-          setClaudeSessionId(effectiveSession.id)
-          startListenerTransition(effectiveSession.id)
+      // Execute the appropriate command and set up listeners immediately
+      if (effectiveSession && !isFirstPrompt) {
+        console.log('[ClaudeCodeSession] Resuming session:', effectiveSession.id)
+        const result = await api.resumeClaudeCode(projectPath, effectiveSession.id, prompt, model)
+        if (result.success && result.runId) {
+          setCurrentRunId(result.runId)
+          console.log('[ClaudeCodeSession] Resume session started with runId:', result.runId)
+          // Set up listeners immediately for this runId
+          await setupRunIdListeners(result.runId)
         }
-
-        // Add the user message immediately to the UI (after setting up listeners)
-        const userMessage: ClaudeStreamMessage = {
-          type: 'user',
-          message: {
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
-          }
-        }
-        setMessages((prev) => [...prev, userMessage])
-
-        // Execute the appropriate command
-        if (effectiveSession && !isFirstPrompt) {
-          console.log('[ClaudeCodeSession] Resuming session:', effectiveSession.id)
-          const result = await api.resumeClaudeCode(projectPath, effectiveSession.id, prompt, model)
-          if (result.success && result.runId) {
-            setCurrentRunId(result.runId)
-            console.log('[ClaudeCodeSession] Resume session started with runId:', result.runId)
-          }
-        } else {
-          console.log('[ClaudeCodeSession] Starting new session')
-          setIsFirstPrompt(false)
-          const result = await api.executeClaudeCode(projectPath, prompt, model)
-          if (result.success && result.runId) {
-            setCurrentRunId(result.runId)
-            console.log('[ClaudeCodeSession] New session started with runId:', result.runId)
-          }
+      } else {
+        console.log('[ClaudeCodeSession] Starting new session')
+        setIsFirstPrompt(false)
+        const result = await api.executeClaudeCode(projectPath, prompt, model)
+        if (result.success && result.runId) {
+          setCurrentRunId(result.runId)
+          console.log('[ClaudeCodeSession] New session started with runId:', result.runId)
+          // Set up listeners immediately for this runId
+          await setupRunIdListeners(result.runId)
         }
       }
     } catch (err) {
@@ -888,19 +739,18 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   }
 
   const handleCancelExecution = async () => {
-    if (!claudeSessionId || !isLoading) return
+    if (!currentRunId || !isLoading) return
 
     try {
-      await api.cancelClaudeExecution(claudeSessionId)
+      // Cancel using runId instead of sessionId
+      await api.cancelClaudeExecution(currentRunId.toString())
 
       // Clean up listeners
-      unlistenRefs.current.forEach((unlisten) => unlisten())
-      unlistenRefs.current = []
+      cleanupListeners()
 
       // Reset states
       setIsLoading(false)
       hasActiveSessionRef.current = false
-      isListeningRef.current = false
       setError(null)
 
       // Clear queued prompts
@@ -928,13 +778,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       setMessages((prev) => [...prev, errorMessage])
 
       // Clean up listeners anyway
-      unlistenRefs.current.forEach((unlisten) => unlisten())
-      unlistenRefs.current = []
+      cleanupListeners()
 
       // Reset states to allow user to continue
       setIsLoading(false)
       hasActiveSessionRef.current = false
-      isListeningRef.current = false
       setError(null)
     }
   }
@@ -1004,64 +852,15 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }
   }
 
-  // Cleanup listeners function
-  const cleanupListeners = useCallback(() => {
-    console.log('[ClaudeCodeSession] Cleaning up all listeners')
-
-    // Stop any ongoing transition checks
-    if (listenersRef.current.checkInterval) {
-      clearInterval(listenersRef.current.checkInterval)
-      listenersRef.current.checkInterval = null
-    }
-
-    // Clean up generic listeners
-    const { generic, sessionSpecific } = listenersRef.current
-    if (generic.output) {
-      generic.output()
-      generic.output = null
-    }
-    if (generic.error) {
-      generic.error()
-      generic.error = null
-    }
-    if (generic.complete) {
-      generic.complete()
-      generic.complete = null
-    }
-
-    // Clean up session-specific listeners
-    if (sessionSpecific.output) {
-      sessionSpecific.output()
-      sessionSpecific.output = null
-    }
-    if (sessionSpecific.error) {
-      sessionSpecific.error()
-      sessionSpecific.error = null
-    }
-    if (sessionSpecific.complete) {
-      sessionSpecific.complete()
-      sessionSpecific.complete = null
-    }
-
-    // Reset state
-    listenersRef.current.transitionState = 'generic-only'
-    listenersRef.current.sessionSpecific.confirmed = false
-    listenersRef.current.sessionSpecific.messageCount = 0
-    listenersRef.current.processedHashes.clear()
-
-    // Clean up old unlistenRefs if any
-    unlistenRefs.current.forEach((unlisten) => unlisten())
-    unlistenRefs.current = []
-
-    isListeningRef.current = false
-  }, [])
-
-  // Helper to handle completion events
+  // Simple helper to handle completion events
   const processComplete = useCallback(
     async (success: boolean) => {
+      console.log('[ClaudeCodeSession] processComplete called:', { success, currentRunId })
       setIsLoading(false)
       hasActiveSessionRef.current = false
-      isListeningRef.current = false
+
+      // Clean up current listeners when session completes
+      cleanupListeners()
 
       if (effectiveSession && success) {
         try {
@@ -1095,7 +894,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         }, 100)
       }
     },
-    [effectiveSession, projectPath]
+    [effectiveSession, projectPath, currentRunId, cleanupListeners]
   )
 
   // Update the ref when processComplete changes
@@ -1103,7 +902,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     processCompleteRef.current = processComplete
   }, [processComplete])
 
-  // Cleanup event listeners and track mount state
+  // Simple cleanup on mount/unmount
   useEffect(() => {
     isMountedRef.current = true
 
@@ -1115,13 +914,13 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
       cleanupListeners()
 
       // Clear checkpoint manager when session ends
-      if (effectiveSession) {
-        api.clearCheckpointManager(effectiveSession.id).catch((err) => {
+      if (effectiveSessionRef.current) {
+        api.clearCheckpointManager(effectiveSessionRef.current.id).catch((err) => {
           console.error('Failed to clear checkpoint manager:', err)
         })
       }
     }
-  }, [effectiveSession, cleanupListeners])
+  }, [cleanupListeners]) // Include cleanupListeners in dependencies
 
   const messagesList = (
     <div
