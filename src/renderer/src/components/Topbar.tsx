@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { Circle, FileText, Settings, ExternalLink, BarChart3, Network, Info } from 'lucide-react'
+import {
+  Circle,
+  FileText,
+  Settings,
+  ExternalLink,
+  BarChart3,
+  Network,
+  Info,
+  Wand2
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { api, type ClaudeVersionStatus } from '@/lib/api'
@@ -30,6 +39,10 @@ interface TopbarProps {
    */
   onInfoClick: () => void
   /**
+   * Callback when Config Wizard is clicked
+   */
+  onConfigWizardClick: () => void
+  /**
    * Optional className for styling
    */
   className?: string
@@ -52,6 +65,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onUsageClick,
   onMCPClick,
   onInfoClick,
+  onConfigWizardClick,
   className
 }) => {
   const { t } = useTranslation('ui')
@@ -183,6 +197,11 @@ export const Topbar: React.FC<TopbarProps> = ({
         <Button variant="ghost" size="sm" onClick={onMCPClick} className="text-xs">
           <Network className="mr-2 h-3 w-3" />
           {t('topbar.buttons.mcp')}
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={onConfigWizardClick} className="text-xs">
+          <Wand2 className="mr-2 h-3 w-3" />
+          {t('topbar.buttons.configWizard')}
         </Button>
 
         <Button variant="ghost" size="sm" onClick={onSettingsClick} className="text-xs">

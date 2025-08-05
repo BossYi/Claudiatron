@@ -59,7 +59,7 @@
     }
   },
   "titleBar": {
-    "appName": "Claudiatron",
+    "appName": "Catalyst",
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close"
@@ -81,6 +81,7 @@
       "usageDashboard": "Usage Dashboard",
       "claudeMd": "CLAUDE.md",
       "mcp": "MCP",
+      "configWizard": "Setup Wizard",
       "settings": "Settings",
       "about": "About"
     }

@@ -121,7 +121,7 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({ state, onComplet
           <div>
             <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">设置完成！</h1>
             <p className="text-lg text-muted-foreground mt-2">
-              Claudiatron 已成功配置，您现在可以开始使用了
+              Catalyst 已成功配置，您现在可以开始使用了
             </p>
           </div>
         </div>
@@ -232,7 +232,7 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({ state, onComplet
           <CardContent className="text-center p-6">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Coffee className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-primary">感谢您选择 Claudiatron</h3>
+              <h3 className="font-semibold text-primary">感谢您选择 Catalyst</h3>
             </div>
             <p className="text-sm text-muted-foreground">
               如果您在使用过程中遇到任何问题，请查看我们的文档或联系支持团队。 祝您编码愉快！

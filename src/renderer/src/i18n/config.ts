@@ -72,7 +72,7 @@ i18n
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],
-      lookupLocalStorage: 'claudiatron-language'
+      lookupLocalStorage: 'catalyst-language'
     },
 
     interpolation: {

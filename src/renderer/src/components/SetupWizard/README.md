@@ -1,10 +1,10 @@
 # SetupWizard 组件
 
-SetupWizard 是 Claudiatron 应用的初始设置向导，用于引导用户完成应用的首次配置。
+SetupWizard 是 Catalyst 应用的初始设置向导，用于引导用户完成应用的首次配置。
 
 ## 功能概述
 
-- **欢迎介绍**: 向用户介绍 Claudiatron 及其功能
+- **欢迎介绍**: 向用户介绍 Catalyst 及其功能
 - **环境检测**: 自动检测 Git、Node.js 和 Claude CLI 的安装状态
 - **Claude 配置**: 配置 Claude API 密钥和连接设置
 - **项目导入**: 支持克隆远程仓库、导入本地项目或创建新项目

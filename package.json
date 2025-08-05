@@ -1,13 +1,13 @@
 {
-  "name": "claudiatron",
+  "name": "catalyst",
   "version": "1.0.2",
   "description": "Claude Code GUI - 一个基于 Electron 的 Claude Code 图形界面工具",
   "main": "./out/main/index.js",
   "author": "haleclipse <haleclipse@gmail.com>",
-  "homepage": "https://github.com/haleclipse/claudiatron",
+  "homepage": "https://github.com/haleclipse/catalyst",
   "repository": {
     "type": "git",
-    "url": "https://github.com/haleclipse/claudiatron.git"
+    "url": "https://github.com/haleclipse/catalyst.git"
   },
   "license": "AGPL-3.0",
   "keywords": [

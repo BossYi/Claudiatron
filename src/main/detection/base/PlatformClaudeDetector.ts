@@ -19,7 +19,7 @@ export abstract class PlatformClaudeDetector implements ClaudeExecutor {
   protected cacheFile: string
 
   constructor() {
-    this.cacheFile = join(homedir(), '.claudiatron', 'claude-detection-cache.json')
+    this.cacheFile = join(homedir(), '.catalyst', 'claude-detection-cache.json')
   }
 
   /**
@@ -115,7 +115,7 @@ export abstract class PlatformClaudeDetector implements ClaudeExecutor {
         ttl: this.getTTL(result)
       }
 
-      await fs.mkdir(join(homedir(), '.claudiatron'), { recursive: true })
+      await fs.mkdir(join(homedir(), '.catalyst'), { recursive: true })
       await fs.writeFile(this.cacheFile, JSON.stringify(cache, null, 2))
     } catch (error) {
       console.warn('Failed to cache Claude detection result:', error)

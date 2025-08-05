@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Claudiatron 是一个基于 Electron + React + TypeScript 的桌面应用，作为 Claude Code 的 GUI 工具。该项目从原始的 Tauri 版本迁移而来，提供完整的 Claude Code 集成功能。
+Catalyst 是一个基于 Electron + React + TypeScript 的桌面应用，作为 Claude Code 的 GUI 工具。该项目从原始的 Tauri 版本迁移而来，提供完整的 Claude Code 集成功能。
 
 ## 常用开发命令
 
@@ -191,7 +191,7 @@ ipcMain.handle('create-claude-session', async (_, projectPath) => { ... });
 
 ### 数据库问题
 
-- 数据库文件位置: `~/AppData/Roaming/claudiatron/claudiatron.db` (Windows)
+- 数据库文件位置: `~/AppData/Roaming/catalyst/catalyst.db` (Windows)
 - 自动迁移和表结构同步
 - TypeORM 日志调试: 在 `connection.ts` 中设置 `logging: true`
 

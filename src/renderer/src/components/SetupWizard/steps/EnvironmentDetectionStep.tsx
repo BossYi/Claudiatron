@@ -481,7 +481,7 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-orange-600 dark:text-orange-300">
-                为了正常使用Claudiatron，您需要安装以下缺失的软件：
+                为了正常使用Catalyst，您需要安装以下缺失的软件：
               </p>
 
               {/* 列出缺失的关键软件 */}

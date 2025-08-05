@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./build/icon.png" alt="Claudiatron Logo" width="120" height="120">
+  <img src="./build/icon.png" alt="Catalyst Logo" width="120" height="120">
 
-  <h1>Claudiatron</h1>
+  <h1>Catalyst</h1>
   
   <p>
     <strong>A Powerful Claude Code GUI Desktop Application</strong>
@@ -26,9 +26,9 @@
 
 ## 🌟 Overview
 
-**Claudiatron** is a modern desktop application built with Electron + React + TypeScript, serving as a visual GUI for Claude Code. It evolved from the original Tauri version, providing a more comprehensive and stable Claude Code integration experience.
+**Catalyst** is a modern desktop application built with Electron + React + TypeScript, serving as a visual GUI for Claude Code. It evolved from the original Tauri version, providing a more comprehensive and stable Claude Code integration experience.
 
-Think of Claudiatron as your command center for Claude Code - bridging the gap between the command-line tool and an intuitive visual interface that makes AI-assisted development more efficient and convenient.
+Think of Catalyst as your command center for Claude Code - bridging the gap between the command-line tool and an intuitive visual interface that makes AI-assisted development more efficient and convenient.
 
 ## 📋 Table of Contents
 
@@ -106,9 +106,9 @@ Think of Claudiatron as your command center for Claude Code - bridging the gap b
 
 ### Getting Started
 
-1. **Launch Claudiatron**: Open the application after installation
+1. **Launch Catalyst**: Open the application after installation
 2. **Welcome Screen**: Choose between CC Agents or CC Projects
-3. **First Time Setup**: Claudiatron will automatically detect your `~/.claude` directory
+3. **First Time Setup**: Catalyst will automatically detect your `~/.claude` directory
 
 ### Managing Projects
 
@@ -205,8 +205,8 @@ Release executables will be published soon.
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/Haleclipse/Claudiatron.git
-   cd Claudiatron
+   git clone https://github.com/Haleclipse/Catalyst.git
+   cd Catalyst
    ```
 
 2. **Install Dependencies**
@@ -267,7 +267,7 @@ pnpm build
 ### Project Structure
 
 ```
-claudiatron/
+Catalyst/
 ├── src/
 │   ├── main/                  # Electron main process
 │   │   ├── api/              # IPC API handlers
@@ -309,7 +309,7 @@ ipcMain.handle('create-claude-session', async (_, projectPath) => { ... })
 
 ## 🔒 Security
 
-Claudiatron prioritizes your privacy and security:
+Catalyst prioritizes your privacy and security:
 
 1. **Process Isolation**: Agents run in separate processes
 2. **Permission Control**: Configure file and network access per agent
@@ -351,8 +351,8 @@ This project is licensed under the GNU Affero General Public License v3.0 (AGPL-
     <strong>Built with Electron for modern desktop experiences</strong>
   </p>
   <p>
-    <a href="https://github.com/Haleclipse/Claudiatron/issues">Report Bug</a>
+    <a href="https://github.com/Haleclipse/Catalyst/issues">Report Bug</a>
     ·
-    <a href="https://github.com/Haleclipse/Claudiatron/issues">Request Feature</a>
+    <a href="https://github.com/Haleclipse/Catalyst/issues">Request Feature</a>
   </p>
 </div>

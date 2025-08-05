@@ -59,7 +59,7 @@
     }
   },
   "titleBar": {
-    "appName": "Claudiatron",
+    "appName": "Catalyst",
     "minimize": "最小化",
     "maximize": "最大化",
     "close": "关闭"
@@ -81,6 +81,7 @@
       "usageDashboard": "使用统计",
       "claudeMd": "CLAUDE.md",
       "mcp": "MCP",
+      "configWizard": "配置向导",
       "settings": "设置",
       "about": "关于"
     }

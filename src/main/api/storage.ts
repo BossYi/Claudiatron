@@ -244,7 +244,7 @@ async function getDatabaseInfo() {
     const path = await import('path')
     const { app } = await import('electron')
 
-    const dbPath = path.join(app.getPath('userData'), 'claudiatron.db')
+    const dbPath = path.join(app.getPath('userData'), 'catalyst.db')
     let databaseSize = 0
 
     try {
@@ -356,7 +356,7 @@ async function backupDatabase(backupPath: string) {
   const path = await import('path')
   const { app } = await import('electron')
 
-  const dbPath = path.join(app.getPath('userData'), 'claudiatron.db')
+  const dbPath = path.join(app.getPath('userData'), 'catalyst.db')
 
   // Copy the database file to the backup location
   await fs.copyFile(dbPath, backupPath)
@@ -370,7 +370,7 @@ async function restoreDatabase(backupPath: string) {
   const path = await import('path')
   const { app } = await import('electron')
 
-  const dbPath = path.join(app.getPath('userData'), 'claudiatron.db')
+  const dbPath = path.join(app.getPath('userData'), 'catalyst.db')
 
   // Close the current database connection
   await databaseManager.close()
@@ -636,7 +636,7 @@ async function resetDatabase() {
     const fs = await import('fs/promises')
     const path = await import('path')
     const { app } = await import('electron')
-    const dbPath = path.join(app.getPath('userData'), 'claudiatron.db')
+    const dbPath = path.join(app.getPath('userData'), 'catalyst.db')
 
     try {
       await fs.unlink(dbPath)

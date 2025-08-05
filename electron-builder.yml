@@ -1,6 +1,6 @@
-appId: org.haleclipse.claudiatron
-productName: Claudiatron
-copyright: Copyright © 2024 haleclipse
+appId: pri.ym.prism
+productName: Catalyst
+copyright: Copyright © 2024 ym
 directories:
   buildResources: build
 files:
@@ -16,7 +16,7 @@ asar: true
 asarUnpack:
   - resources/**
 win:
-  executableName: Claudiatron
+  executableName: Catalyst
   icon: build/icon.ico
   target:
     - target: nsis
@@ -68,21 +68,21 @@ linux:
       arch: [x64]
     - target: rpm
       arch: [x64]
-  maintainer: haleclipse <haleclipse@gmail.com>
-  vendor: haleclipse
+  maintainer: ym <ym@gmail.com>
+  vendor: ym
   category: Development
   synopsis: Claude Code GUI - 一个基于 Electron 的 Claude Code 图形界面工具
   description: |
-    Claudiatron 是一个基于 Electron + React + TypeScript 的桌面应用，
-    作为 Claude Code 的 GUI 工具，提供完整的 Claude Code 集成功能。
+    Catalyst 是一个基于 Electron + React + TypeScript 的桌面应用，
+    作为 Claude Code 的 GUI 工具，提供完整的 Claude Code 集成功能, 通过Catalyst, 将复杂的 Claude Code 功能通过图形界面"折射"成易懂的彩色光谱
 appImage:
   artifactName: ${name}-${version}.${ext}
   category: Development
 npmRebuild: false
 publish:
   provider: github
-  owner: haleclipse
-  repo: claudiatron
+  owner: ym
+  repo: prism
   private: false
   releaseType: release
 electronDownload:

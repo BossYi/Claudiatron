@@ -27,7 +27,7 @@ interface WelcomeStepProps {
 /**
  * 欢迎步骤组件
  *
- * 向导的第一步，为用户介绍Claudiatron和设置流程
+ * 向导的第一步，为用户介绍Catalyst和设置流程
  */
 export const WelcomeStep: React.FC<WelcomeStepProps> = ({ state, onNext, onComplete }) => {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -68,7 +68,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ state, onNext, onCompl
       >
         {/* 欢迎标题 */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Claudiatron 设置向导</h1>
+          <h1 className="text-3xl font-bold">Catalyst 设置向导</h1>
           <p className="text-lg text-muted-foreground">您的智能代码助手桌面应用</p>
         </div>
 
@@ -133,7 +133,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ state, onNext, onCompl
             )}
           </Button>
           <p className="text-sm text-muted-foreground text-center sm:text-left sm:max-w-xs">
-            此设置向导将引导您完成Claudiatron的初始配置。整个过程大约需要5-10分钟。
+            此设置向导将引导您完成Catalyst的初始配置。整个过程大约需要5-10分钟。
           </p>
         </div>
       </motion.div>

@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./build/icon.png" alt="Claudiatron Logo" width="120" height="120">
+  <img src="./build/icon.png" alt="Catalyst Logo" width="120" height="120">
 
-  <h1>Claudiatron</h1>
+  <h1>Catalyst</h1>
   
   <p>
     <strong>强大的 Claude Code GUI 桌面应用</strong>
@@ -26,9 +26,9 @@
 
 ## 🌟 项目概述
 
-**Claudiatron** 是一个基于 Electron + React + TypeScript 开发的现代化桌面应用，作为 Claude Code 的可视化图形界面。它从原始的 Tauri 版本演进而来，提供了更加完善和稳定的 Claude Code 集成体验。
+**Catalyst** 是一个基于 Electron + React + TypeScript 开发的现代化桌面应用，作为 Claude Code 的可视化图形界面。它从原始的 Tauri 版本演进而来，提供了更加完善和稳定的 Claude Code 集成体验。
 
-Claudiatron 是您使用 Claude Code 的全能控制中心，将命令行工具与直观的可视化界面完美结合，让 AI 辅助开发变得更加高效和便捷。
+Catalyst 是您使用 Claude Code 的全能控制中心，将命令行工具与直观的可视化界面完美结合，让 AI 辅助开发变得更加高效和便捷。
 
 ## 📋 目录结构
 
@@ -106,7 +106,7 @@ Claudiatron 是您使用 Claude Code 的全能控制中心，将命令行工具�
 
 ### 快速开始
 
-1. **启动应用**: 安装后打开 Claudiatron
+1. **启动应用**: 安装后打开 Catalyst
 2. **欢迎界面**: 选择 CC Agents 或 CC Projects
 3. **首次设置**: 应用会自动检测您的 `~/.claude` 目录
 
@@ -205,8 +205,8 @@ CC Agents → 创建代理 → 配置设置 → 执行任务
 1. **克隆仓库**
 
    ```bash
-   git clone https://github.com/Haleclipse/Claudiatron.git
-   cd Claudiatron
+   git clone https://github.com/Haleclipse/Catalyst.git
+   cd Catalyst
    ```
 
 2. **安装依赖**
@@ -267,7 +267,7 @@ pnpm build
 ### 项目结构
 
 ```
-claudiatron/
+catalyst/
 ├── src/
 │   ├── main/                  # Electron 主进程
 │   │   ├── api/              # IPC API 处理器
@@ -309,7 +309,7 @@ ipcMain.handle('create-claude-session', async (_, projectPath) => { ... })
 
 ## 🔒 安全性
 
-Claudiatron 优先考虑您的隐私和安全：
+Catalyst 优先考虑您的隐私和安全：
 
 1. **进程隔离**: 代理在独立进程中运行
 2. **权限控制**: 为每个代理配置文件和网络访问权限
@@ -351,8 +351,8 @@ Claudiatron 优先考虑您的隐私和安全：
     <strong>基于 Electron 构建的现代化桌面应用</strong>
   </p>
   <p>
-    <a href="https://github.com/Haleclipse/Claudiatron/issues">报告问题</a>
+    <a href="https://github.com/Haleclipse/Catalyst/issues">报告问题</a>
     ·
-    <a href="https://github.com/Haleclipse/Claudiatron/issues">功能请求</a>
+    <a href="https://github.com/Haleclipse/Catalyst/issues">功能请求</a>
   </p>
 </div>

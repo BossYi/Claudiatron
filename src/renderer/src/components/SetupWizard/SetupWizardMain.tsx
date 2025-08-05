@@ -80,7 +80,7 @@ export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({ onComplete, on
       {
         step: WizardStep.WELCOME,
         title: '欢迎使用',
-        description: 'Claudiatron 设置向导'
+        description: 'Catalyst 设置向导'
       },
       {
         step: WizardStep.ENVIRONMENT_DETECTION,
@@ -175,7 +175,7 @@ export const SetupWizardMain: React.FC<SetupWizardMainProps> = ({ onComplete, on
       <div className="flex-shrink-0 border-b bg-card">
         <div className="px-4 md:px-6 py-4 md:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 gap-3">
-            <h1 className="text-xl md:text-2xl font-bold">Claudiatron 设置向导</h1>
+            <h1 className="text-xl md:text-2xl font-bold">Catalyst 设置向导</h1>
             {onClose && (
               <Button
                 variant="ghost"

@@ -453,7 +453,7 @@ function App() {
               try {
                 await api.setupWizardCompleteSetup()
                 setToast({
-                  message: '设置向导已完成！欢迎使用 Claudiatron',
+                  message: '设置向导已完成！欢迎使用 Catalyst',
                   type: 'success'
                 })
                 handleViewChange('welcome')
@@ -489,6 +489,7 @@ function App() {
           onUsageClick={() => handleViewChange('usage-dashboard')}
           onMCPClick={() => handleViewChange('mcp')}
           onInfoClick={() => setShowNFO(true)}
+          onConfigWizardClick={() => handleViewChange('setup-wizard')}
         />
 
         {/* Main Content */}

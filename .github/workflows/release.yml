@@ -122,8 +122,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
-          name: 'Claudiatron ${{ steps.version.outputs.VERSION }}'
-          body: 'Claudiatron ${{ steps.version.outputs.VERSION }} Release'
+          name: 'Catalyst ${{ steps.version.outputs.VERSION }}'
+          body: 'Catalyst ${{ steps.version.outputs.VERSION }} Release'
           draft: false
           prerelease: false
           files: |

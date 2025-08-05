@@ -32,7 +32,7 @@ export class AoneCredentialsService {
   private deriveKey(): Buffer {
     // 使用机器信息和固定salt生成密钥
     const machineInfo = os.hostname() + os.platform() + os.arch()
-    const salt = 'claudiatron-aone-credentials'
+    const salt = 'catalyst-aone-credentials'
     return crypto.pbkdf2Sync(machineInfo, salt, 100000, 32, 'sha512')
   }
 

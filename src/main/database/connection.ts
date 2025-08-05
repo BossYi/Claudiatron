@@ -20,7 +20,7 @@ class DatabaseManager {
 
     // Get database path in user data directory
     const userDataPath = app.getPath('userData')
-    const dbPath = path.join(userDataPath, 'claudiatron.db')
+    const dbPath = path.join(userDataPath, 'catalyst.db')
 
     this.dataSource = new DataSource({
       type: 'better-sqlite3',
