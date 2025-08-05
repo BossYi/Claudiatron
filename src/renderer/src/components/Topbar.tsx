@@ -208,16 +208,6 @@ export const Topbar: React.FC<TopbarProps> = ({
           <Settings className="mr-2 h-3 w-3" />
           {t('topbar.buttons.settings')}
         </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onInfoClick}
-          className="h-8 w-8"
-          title={t('topbar.buttons.about')}
-        >
-          <Info className="h-4 w-4" />
-        </Button>
       </div>
     </motion.div>
   )

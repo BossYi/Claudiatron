@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   FolderOpen,
@@ -50,6 +50,7 @@ interface RepositoryImportStepProps {
  * 导入现有项目或创建新项目
  */
 export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
+  state,
   onComplete,
   onError,
   onClearError,
@@ -58,10 +59,25 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   const [activeTab, setActiveTab] = useState<'clone' | 'local' | 'create'>('clone')
   const [importing, setImporting] = useState(false)
 
+  // 获取用户主目录并构建默认路径
+  const homeDir = state.userData.environmentStatus?.systemInfo?.homeDir
+  const defaultClonePath = homeDir ? `${homeDir}/.Catalyst/projects` : '~/.Catalyst/projects'
+
+  // 跟踪路径是否被用户手动修改
+  const isPathCustomized = useRef(false)
+
   // 克隆仓库状态
   const [cloneUrl, setCloneUrl] = useState('')
-  const [clonePath, setClonePath] = useState('')
+  const [clonePath, setClonePath] = useState(defaultClonePath)
   const [cloneBranch, setCloneBranch] = useState('master')
+
+  // 当系统信息更新时同步更新默认路径
+  useEffect(() => {
+    if (homeDir && !isPathCustomized.current) {
+      const newDefaultPath = `${homeDir}/.Catalyst/projects`
+      setClonePath(newDefaultPath)
+    }
+  }, [homeDir])
 
   // 本地项目状态
   const [localPath, setLocalPath] = useState('')
@@ -312,6 +328,8 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
         switch (type) {
           case 'clone':
             setClonePath(selectedPath)
+            // 标记路径已被用户自定义
+            isPathCustomized.current = true
             break
           case 'local':
             setLocalPath(selectedPath)
@@ -532,10 +550,6 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                       )}
                       {!loadingCredentials && (
                         <>
-                          <div className="flex items-start gap-2 text-xs text-blue-600 dark:text-blue-400">
-                            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <span>认证信息将被加密存储在本地，用于后续的仓库更新操作</span>
-                          </div>
                           <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
                             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                             <span>
@@ -564,13 +578,19 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                       onChange={(e) => {
                         setClonePath(e.target.value)
                         setFolderSelectError(null)
+                        // 标记路径已被用户自定义
+                        isPathCustomized.current = true
                       }}
-                      placeholder="/Users/username/Projects"
+                      placeholder={defaultClonePath}
                       className="flex-1"
                     />
                     <Button variant="outline" onClick={() => selectFolder('clone')}>
                       选择
                     </Button>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Info className="h-4 w-4" />
+                    <span>项目将被克隆到此目录下。默认使用 {defaultClonePath} 目录。</span>
                   </div>
                 </div>
 

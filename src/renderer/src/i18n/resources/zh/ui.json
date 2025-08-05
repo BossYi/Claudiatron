@@ -35,7 +35,7 @@
       "description": "管理 MCP 服务器"
     },
     "settings": {
-      "title": "设置",
+      "title": "设置设置",
       "description": "配置应用程序设置"
     }
   },
@@ -82,7 +82,7 @@
       "usageDashboard": "使用统计",
       "claudeMd": "CLAUDE.md",
       "mcp": "MCP",
-      "settings": "设置",
+      "settings": "高级设置",
       "about": "关于"
     }
   },
