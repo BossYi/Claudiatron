@@ -1,4 +1,4 @@
-appId: pri.ym.prism
+appId: pri.ym.catalyst
 productName: Catalyst
 copyright: Copyright © 2024 ym
 directories:
@@ -82,7 +82,7 @@ npmRebuild: false
 publish:
   provider: github
   owner: ym
-  repo: prism
+  repo: catalyst
   private: false
   releaseType: release
 electronDownload:

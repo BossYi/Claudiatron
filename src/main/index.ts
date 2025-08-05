@@ -63,7 +63,7 @@ app.whenReady().then(async () => {
   await loadShellEnvironment()
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('pri.ym.catalyst')
 
   // Initialize database
   try {

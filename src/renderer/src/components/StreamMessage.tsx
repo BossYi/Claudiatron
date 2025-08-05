@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Catalyst as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { claudeSyntaxTheme } from '@/lib/claudeSyntaxTheme'
 import type { ClaudeStreamMessage } from './AgentExecution'
 import {

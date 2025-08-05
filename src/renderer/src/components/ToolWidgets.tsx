@@ -50,7 +50,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Catalyst as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { claudeSyntaxTheme } from '@/lib/claudeSyntaxTheme'
 import { Button } from '@/components/ui/button'
 import { createPortal } from 'react-dom'
