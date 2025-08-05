@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle, AlertCircle, Loader2, Circle, ChevronRight } from 'lucide-react'
+import { CheckCircle, AlertCircle, Loader2, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WizardStep, StepStatus } from '@/types/setupWizard'
 
@@ -53,7 +53,7 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
     const isError = status === StepStatus.ERROR
     const isInProgress = status === StepStatus.IN_PROGRESS || isCurrentStep
 
-    // 外圈容器样式
+    // 统一的外圈容器样式 - 确保所有状态都有一致的尺寸
     const outerContainerClassName = cn(
       'relative flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full transition-all duration-300',
       {
@@ -63,31 +63,31 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
         'bg-red-500': isError,
         // 当前步骤或进行中 - 蓝色外圈
         'bg-blue-500': isInProgress && !isError,
-        // 未开始状态 - 灰色边框
+        // 未开始状态 - 灰色边框，白色背景
         'bg-white border-2 border-gray-300': !isCompleted && !isError && !isInProgress
       }
     )
 
-    // 内圈样式
+    // 统一的内圈样式 - 所有状态都使用内圈以确保视觉中心一致
     const innerContainerClassName = cn(
       'flex items-center justify-center rounded-full transition-all duration-300',
       {
-        // 有状态的步骤需要白色内圈
+        // 有颜色背景的状态需要白色内圈
         'w-6 h-6 md:w-8 md:h-8 bg-white': isCompleted || isError || (isInProgress && !isError),
-        // 未开始状态不需要内圈
-        'w-full h-full': !isCompleted && !isError && !isInProgress
+        // 未开始状态使用透明内圈保持结构一致
+        'w-6 h-6 md:w-8 md:h-8 bg-transparent': !isCompleted && !isError && !isInProgress
       }
     )
 
     // 图标样式
-    const iconClassName = cn({
+    const iconClassName = cn('transition-colors duration-300', {
       'text-green-500': isCompleted,
       'text-red-500': isError,
       'text-blue-500': isInProgress && !isError,
       'text-gray-400': !isCompleted && !isError && !isInProgress
     })
 
-    // 渲染图标
+    // 渲染图标 - 确保数字和图标的视觉中心一致
     const renderIcon = () => {
       if (isCompleted) {
         return <CheckCircle className={cn('w-4 h-4 md:w-5 md:h-5', iconClassName)} />
@@ -97,12 +97,26 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
         return status === StepStatus.IN_PROGRESS ? (
           <Loader2 className={cn('w-4 h-4 md:w-5 md:h-5 animate-spin', iconClassName)} />
         ) : (
-          <span className={cn('text-xs md:text-sm font-semibold', iconClassName)}>
+          <span
+            className={cn(
+              'text-xs md:text-sm font-semibold leading-none flex items-center justify-center',
+              iconClassName
+            )}
+          >
             {stepIndex + 1}
           </span>
         )
       } else {
-        return <Circle className={cn('w-4 h-4 md:w-5 md:h-5', iconClassName)} />
+        return (
+          <span
+            className={cn(
+              'text-xs md:text-sm font-semibold leading-none flex items-center justify-center',
+              iconClassName
+            )}
+          >
+            {stepIndex + 1}
+          </span>
+        )
       }
     }
 
@@ -183,31 +197,31 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
                 {getStepIcon(stepConfig.step, index)}
               </motion.div>
 
-              {/* 步骤标题 */}
-              <div className="mt-2 md:mt-3 text-center">
+              {/* 步骤标题和描述 */}
+              <div className="mt-2 md:mt-3 text-center flex flex-col items-center">
                 <h3
                   className={cn(
                     getStepTitleClassName(stepConfig.step),
-                    'text-xs md:text-sm max-w-16 md:max-w-24'
+                    'text-xs md:text-sm max-w-20 md:max-w-28 leading-tight'
                   )}
                 >
                   {stepConfig.title}
                 </h3>
 
-                {/* 描述文字 - 保持最小高度以对齐所有步骤 */}
-                <p className="text-xs text-muted-foreground mt-1 leading-tight min-h-[2.5rem] max-w-24 md:max-w-32 flex items-start justify-center">
+                {/* 描述文字 - 优化对齐和高度一致性 */}
+                <p className="text-xs text-muted-foreground mt-1 leading-tight min-h-[2.5rem] max-w-20 md:max-w-28 flex items-center justify-center text-center">
                   <span className="block">{stepConfig.description}</span>
                 </p>
               </div>
             </motion.div>
 
-            {/* 步骤之间的箭头 */}
+            {/* 步骤之间的箭头 - 与图标中心对齐 */}
             {index < steps.length - 1 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: (index + 0.5) * 0.1, duration: 0.3 }}
-                className="flex items-center self-start mt-3 md:mt-4"
+                className="flex items-center h-8 md:h-10"
               >
                 <ChevronRight className={cn('w-5 h-5 md:w-6 md:h-6', getArrowClassName(index))} />
               </motion.div>
