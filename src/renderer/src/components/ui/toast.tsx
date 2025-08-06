@@ -71,9 +71,9 @@ export const Toast: React.FC<ToastProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.95 }}
+      initial={{ opacity: 0, y: -50, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className={cn(
         'flex items-center space-x-3 rounded-lg border border-border bg-card px-4 py-3 shadow-lg',
@@ -101,7 +101,7 @@ interface ToastContainerProps {
 
 export const ToastContainer: React.FC<ToastContainerProps> = ({ children }) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-4 pointer-events-none">
+    <div className="fixed top-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
       <div className="pointer-events-auto">
         <AnimatePresence mode="wait">{children}</AnimatePresence>
       </div>

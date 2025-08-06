@@ -10,6 +10,7 @@ interface ValidationResult {
   error?: string
   repoInfo?: any
   projectInfo?: any
+  localPath?: string
 }
 
 interface ImportStatusCardProps {
@@ -18,6 +19,7 @@ interface ImportStatusCardProps {
   cloneProgress: RepositoryCloneProgress | null
   validationResult: ValidationResult | null
   folderSelectError: string | null
+  clonePath?: string
 }
 
 export const ImportStatusCard: React.FC<ImportStatusCardProps> = ({
@@ -25,7 +27,8 @@ export const ImportStatusCard: React.FC<ImportStatusCardProps> = ({
   activeTab,
   cloneProgress,
   validationResult,
-  folderSelectError
+  folderSelectError,
+  clonePath
 }) => {
   // 导入状态显示
   if (importing) {
@@ -131,6 +134,15 @@ export const ImportStatusCard: React.FC<ImportStatusCardProps> = ({
                         </div>
                       )}
                     </>
+                  )}
+                  {/* 显示克隆路径 */}
+                  {(validationResult.localPath || clonePath) && (
+                    <div className="flex items-start justify-between">
+                      <span className="text-muted-foreground">克隆路径:</span>
+                      <span className="text-right ml-2 break-all font-mono text-xs">
+                        {validationResult.localPath || clonePath}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>

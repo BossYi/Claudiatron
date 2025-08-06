@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react'
 import type {
   RepositoryConfiguration,
   RepositoryCloneProgress,
-  AoneAuthInfo
+  AoneAuthInfo,
+  PresetRepository
 } from '@/types/setupWizard'
 import { WizardStep, RepositoryType } from '@/types/setupWizard'
 import { api } from '@/lib/api'
@@ -12,6 +13,7 @@ interface ValidationResult {
   error?: string
   repoInfo?: any
   projectInfo?: any
+  localPath?: string
 }
 
 export interface UseRepositoryImportProps {
@@ -94,7 +96,8 @@ export function useRepositoryImport({
       setValidationResult({
         valid: true,
         repoInfo: validation,
-        projectInfo: result.data.projectInfo
+        projectInfo: result.data.projectInfo,
+        localPath: result.data.localPath
       })
 
       return config
@@ -148,10 +151,45 @@ export function useRepositoryImport({
     return config
   }, [])
 
+  // 导入预置项目
+  const importPresetProject = useCallback(
+    async (project: PresetRepository, clonePath?: string, globalAuth?: AoneAuthInfo) => {
+      if (!project) {
+        throw new Error('项目信息不能为空')
+      }
+
+      // 确定仓库类型
+      let repositoryType: RepositoryType = RepositoryType.OTHER
+      if (project.url.includes('aone.alibaba-inc.com')) {
+        repositoryType = RepositoryType.AONE
+      } else if (project.url.includes('github.com')) {
+        repositoryType = RepositoryType.GITHUB
+      }
+
+      // 使用预置项目信息进行克隆
+      const config = await cloneRepository(
+        project.url,
+        clonePath || '',
+        project.defaultBranch,
+        repositoryType,
+        repositoryType === RepositoryType.AONE ? globalAuth : undefined
+      )
+
+      // 更新配置信息，使用预置项目的元数据
+      const enhancedConfig: Partial<RepositoryConfiguration> = {
+        ...config,
+        projectName: project.name
+      }
+
+      return enhancedConfig
+    },
+    [cloneRepository]
+  )
+
   // 主导入函数
   const importProject = useCallback(
     async (
-      type: 'clone' | 'local' | 'create',
+      type: 'clone' | 'local' | 'create' | 'preset',
       options: {
         // 克隆选项
         cloneUrl?: string
@@ -159,6 +197,9 @@ export function useRepositoryImport({
         cloneBranch?: string
         repositoryType?: RepositoryType
         aoneAuth?: AoneAuthInfo
+        // 预置项目选项
+        presetProject?: PresetRepository
+        globalAuth?: AoneAuthInfo
         // 本地项目选项
         localPath?: string
         // 新项目选项
@@ -185,6 +226,17 @@ export function useRepositoryImport({
               options.cloneBranch || 'master',
               options.repositoryType || RepositoryType.OTHER,
               options.aoneAuth
+            )
+            break
+
+          case 'preset':
+            if (!options.presetProject) {
+              throw new Error('预置项目信息不能为空')
+            }
+            config = await importPresetProject(
+              options.presetProject,
+              options.clonePath,
+              options.globalAuth
             )
             break
 
@@ -219,6 +271,7 @@ export function useRepositoryImport({
     },
     [
       cloneRepository,
+      importPresetProject,
       importLocalProject,
       createNewProject,
       onComplete,

@@ -22,6 +22,7 @@ import { api, type Session } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { open } from '@/lib/api'
 import { listen, type UnlistenFn } from '@/lib/api'
+import { getDefaultProjectsPath } from '@/lib/utils/projectPaths'
 import { StreamMessage } from './StreamMessage'
 import { FloatingPromptInput, type FloatingPromptInputRef } from './FloatingPromptInput'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -84,6 +85,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   onStreamingChange
 }) => {
   const { t } = useTranslation('session')
+  const [defaultProjectsPath, setDefaultProjectsPath] = useState<string>('')
   const [projectPath, setProjectPath] = useState(initialProjectPath || session?.project_path || '')
   const [messages, setMessages] = useState<ClaudeStreamMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -147,6 +149,19 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   useEffect(() => {
     queuedPromptsRef.current = queuedPrompts
   }, [queuedPrompts])
+
+  // 获取默认项目路径
+  useEffect(() => {
+    const loadDefaultPath = async () => {
+      const defaultPath = await getDefaultProjectsPath()
+      setDefaultProjectsPath(defaultPath)
+      // 如果当前没有设置项目路径，使用默认路径
+      if (!projectPath && !initialProjectPath && !session?.project_path) {
+        setProjectPath(defaultPath)
+      }
+    }
+    loadDefaultPath()
+  }, [])
 
   // Get effective session info - prefer detected sessionId over prop
   const effectiveSession = useMemo(() => {
@@ -557,7 +572,8 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     try {
       const selected = await open({
         properties: ['openDirectory'],
-        title: 'Select Project Directory'
+        title: 'Select Project Directory',
+        defaultPath: defaultProjectsPath || undefined
       })
 
       if (selected) {

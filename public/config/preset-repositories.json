@@ -3,169 +3,131 @@
   "lastUpdated": "2024-08-06T00:00:00.000Z",
   "businessTeams": [
     {
-      "teamId": "marketing",
-      "teamName": "市场营销团队",
-      "teamDesc": "负责产品推广、用户增长、品牌建设等业务",
+      "teamId": "logistics",
+      "teamName": "ICBU物流团队",
+      "teamDesc": "负责ICBU物流&关务业务",
       "teamIcon": "📈",
       "displayOrder": 1,
-      "tags": ["营销", "增长", "数据分析"],
       "repositories": [
         {
-          "repoId": "marketing-dashboard",
-          "name": "营销数据看板",
-          "description": "用户增长和营销效果分析工具，包含关键指标监控和数据可视化功能",
-          "url": "https://code.alibaba-inc.com/marketing/dashboard.git",
+          "repoId": "onetouch-lg-solution",
+          "name": "ICBU物流方案中心",
+          "description": "负责ICBU物流方案与报价配置、物流计费、物流方案表达的功能",
+          "url": "https://code.alibaba-inc.com/onetouch-tech/onetouch-logistics-solution",
           "type": "aone",
           "defaultBranch": "master",
           "isPrivate": true,
           "accessLevel": "internal",
-          "tags": ["数据分析", "看板", "用户增长", "可视化"],
+          "tags": ["物流", "方案", "报价", "计费"],
           "lastUpdated": "2024-08-01T00:00:00.000Z"
         },
         {
-          "repoId": "campaign-management",
-          "name": "营销活动管理系统",
-          "description": "统一的营销活动策划、执行和效果跟踪平台",
-          "url": "https://code.alibaba-inc.com/marketing/campaigns.git",
+          "repoId": "onetouch-logistics-order",
+          "name": "ICBU物流订单中心",
+          "description": "负责ICBU物流订单的管理、处理与跟踪，涵盖订单创建、状态流转、订单查询等核心功能。",
+          "url": "https://code.alibaba-inc.com/onetouch-tech/onetouch-logistics-order",
           "type": "aone",
-          "defaultBranch": "main",
+          "defaultBranch": "master",
           "isPrivate": true,
           "accessLevel": "internal",
-          "tags": ["活动管理", "营销", "运营工具"],
-          "lastUpdated": "2024-07-28T00:00:00.000Z"
+          "tags": ["物流", "订单", "管理", "跟踪"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
+        },
+        {
+          "repoId": "freight-template",
+          "name": "ICBU物流运费模板",
+          "description": "负责ICBU物流运费模板的配置、管理与应用，支撑物流计费、模板表达等相关功能。",
+          "url": "https://code.alibaba-inc.com/onetouch-tech/freight-template",
+          "type": "aone",
+          "defaultBranch": "master",
+          "isPrivate": true,
+          "accessLevel": "internal",
+          "tags": ["物流", "模板", "配置", "计费"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
+        },
+        {
+          "repoId": "onetouch-hscode",
+          "name": "ICBU物流HS编码中心",
+          "description": "负责ICBU物流HS编码的管理、配置与查询，支撑跨境物流合规、报关等相关功能。",
+          "url": "https://code.alibaba-inc.com/onetouch-tech/onetouch-hscode",
+          "type": "aone",
+          "defaultBranch": "master",
+          "isPrivate": true,
+          "accessLevel": "internal",
+          "tags": ["物流", "HS编码", "合规", "报关"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
+        },
+        {
+          "repoId": "icbu-scm",
+          "name": "ICBU供应链管理中心",
+          "description": "负责ICBU供应链管理相关功能，包括供应链流程、订单管理、库存管理等模块的开发与维护。",
+          "url": "https://code.alibaba-inc.com/onetouch-tech/icbu-scm",
+          "type": "aone",
+          "defaultBranch": "master",
+          "isPrivate": true,
+          "accessLevel": "internal",
+          "tags": ["供应链", "订单", "库存", "管理"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
+        },
+        {
+          "repoId": "service-coordination",
+          "name": "发货台后端服务",
+          "description": "负责贸易物流服务的协同调度、流程管理与服务整合，支撑跨部门、跨系统的物流业务协作。",
+          "url": "https://code.alibaba-inc.com/trade-logistics/service-coordination",
+          "type": "aone",
+          "defaultBranch": "master",
+          "isPrivate": true,
+          "accessLevel": "internal",
+          "tags": ["物流", "服务协同", "发货台", "调度"],
+          "lastUpdated": null
         }
       ]
     },
     {
-      "teamId": "product",
-      "teamName": "产品研发团队",
-      "teamDesc": "核心产品功能开发、用户体验优化和技术创新",
+      "teamId": "trade",
+      "teamName": "ICBU交易团队",
+      "teamDesc": "负责ICBU交易业务",
       "teamIcon": "🚀",
       "displayOrder": 2,
-      "tags": ["产品", "研发", "用户体验"],
       "repositories": [
         {
-          "repoId": "core-platform",
-          "name": "核心产品平台",
-          "description": "主要产品功能和用户界面，包含核心业务逻辑和前端展示",
-          "url": "https://code.alibaba-inc.com/product/platform.git",
+          "repoId": "trace-contract",
+          "name": "ICBU交易合同中心",
+          "description": "负责ICBU交易合同的管理、处理与跟踪，涵盖合同创建、状态流转、合同查询等核心功能。",
+          "url": "https://code.alibaba-inc.com/icbu_trade/trade-contract",
           "type": "aone",
           "defaultBranch": "main",
           "isPrivate": true,
           "accessLevel": "private",
-          "tags": ["核心产品", "前端", "业务逻辑"],
-          "lastUpdated": "2024-08-05T00:00:00.000Z"
-        },
-        {
-          "repoId": "mobile-app",
-          "name": "移动端应用",
-          "description": "iOS和Android移动应用，提供完整的移动端用户体验",
-          "url": "https://code.alibaba-inc.com/product/mobile-app.git",
-          "type": "aone",
-          "defaultBranch": "develop",
-          "isPrivate": true,
-          "accessLevel": "private",
-          "tags": ["移动端", "iOS", "Android", "用户体验"],
-          "lastUpdated": "2024-08-03T00:00:00.000Z"
-        },
-        {
-          "repoId": "design-system",
-          "name": "设计系统组件库",
-          "description": "统一的UI组件库和设计规范，确保产品界面一致性",
-          "url": "https://code.alibaba-inc.com/product/design-system.git",
-          "type": "aone",
-          "defaultBranch": "main",
-          "isPrivate": true,
-          "accessLevel": "internal",
-          "tags": ["设计系统", "组件库", "UI规范"],
-          "lastUpdated": "2024-07-30T00:00:00.000Z"
+          "tags": ["交易", "合同", "管理", "跟踪"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
         }
       ]
     },
     {
-      "teamId": "data",
-      "teamName": "数据智能团队",
-      "teamDesc": "数据分析、机器学习、商业智能等数据驱动业务",
+      "teamId": "pay",
+      "teamName": "ICBU资金团队",
+      "teamDesc": "负责ICBU资金业务",
       "teamIcon": "📊",
       "displayOrder": 3,
-      "tags": ["数据", "AI", "分析"],
       "repositories": [
         {
-          "repoId": "data-pipeline",
-          "name": "数据处理管道",
-          "description": "企业级数据ETL处理和实时数据流管理系统",
-          "url": "https://code.alibaba-inc.com/data/pipeline.git",
+          "repoId": "nyse",
+          "name": "资金网关",
+          "description": "负责ICBU资金网关的开发、维护与管理，包括支付、结算、退款等核心功能。",
+          "url": "https://code.alibaba-inc.com/icbu_trade/nyse",
           "type": "aone",
           "defaultBranch": "master",
           "isPrivate": true,
           "accessLevel": "private",
-          "tags": ["数据处理", "ETL", "实时流", "大数据"],
-          "lastUpdated": "2024-08-04T00:00:00.000Z"
-        },
-        {
-          "repoId": "ml-platform",
-          "name": "机器学习平台",
-          "description": "统一的机器学习模型训练、部署和监控平台",
-          "url": "https://code.alibaba-inc.com/data/ml-platform.git",
-          "type": "aone",
-          "defaultBranch": "main",
-          "isPrivate": true,
-          "accessLevel": "private",
-          "tags": ["机器学习", "AI", "模型训练", "MLOps"],
-          "lastUpdated": "2024-08-02T00:00:00.000Z"
-        }
-      ]
-    },
-    {
-      "teamId": "infrastructure",
-      "teamName": "基础设施团队",
-      "teamDesc": "云平台、运维、安全、DevOps等基础技术设施",
-      "teamIcon": "🏗️",
-      "displayOrder": 4,
-      "tags": ["基础设施", "运维", "安全"],
-      "repositories": [
-        {
-          "repoId": "k8s-platform",
-          "name": "Kubernetes运维平台",
-          "description": "容器化部署和集群管理平台，包含监控、日志、告警等功能",
-          "url": "https://code.alibaba-inc.com/infra/k8s-platform.git",
-          "type": "aone",
-          "defaultBranch": "main",
-          "isPrivate": true,
-          "accessLevel": "internal",
-          "tags": ["Kubernetes", "容器", "运维", "监控"],
-          "lastUpdated": "2024-08-06T00:00:00.000Z"
-        },
-        {
-          "repoId": "devops-tools",
-          "name": "DevOps工具链",
-          "description": "CI/CD流水线、代码质量检查、自动化测试等开发运维工具",
-          "url": "https://code.alibaba-inc.com/infra/devops-tools.git",
-          "type": "aone",
-          "defaultBranch": "master",
-          "isPrivate": true,
-          "accessLevel": "internal",
-          "tags": ["CI/CD", "自动化", "测试", "代码质量"],
-          "lastUpdated": "2024-07-31T00:00:00.000Z"
+          "tags": ["资金", "网关", "支付", "结算", "退款"],
+          "lastUpdated": "2025-08-06T00:00:00.000Z"
         }
       ]
     }
   ],
-  "popularTags": [
-    "数据分析",
-    "用户体验",
-    "移动端",
-    "机器学习",
-    "运维",
-    "营销",
-    "CI/CD",
-    "组件库",
-    "监控",
-    "自动化"
-  ],
   "settings": {
     "enableSearch": true,
-    "enableTagFilter": true,
     "defaultImportMode": "preset"
   }
 }

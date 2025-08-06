@@ -209,18 +209,8 @@ export class SetupWizardApi extends ApiClient {
           data: config
         }
       } catch (error) {
-        // 如果加载失败，返回一个默认配置
-        const defaultConfig = {
-          version: '1.0.0',
-          lastUpdated: new Date().toISOString(),
-          businessTeams: [],
-          popularTags: [],
-          settings: {
-            enableSearch: true,
-            enableTagFilter: true,
-            defaultImportMode: 'custom'
-          }
-        }
+        console.warn('Failed to load preset repository config from /config/, using fallback data')
+        const defaultConfig = {}
         return {
           success: true,
           data: defaultConfig

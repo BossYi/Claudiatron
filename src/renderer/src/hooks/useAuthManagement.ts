@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
-import type { AoneAuthInfo, GlobalAuthStatus, PresetRepositoryConfig } from '@/types/setupWizard'
+import type {
+  AoneAuthInfo,
+  GlobalAuthStatus,
+  PresetRepositoryConfig,
+  BusinessTeam,
+  PresetRepository
+} from '@/types/setupWizard'
 import { ImportMode } from '@/types/setupWizard'
 import { api } from '@/lib/api'
 
@@ -17,6 +23,15 @@ export function useAuthManagement() {
 
   // 预置仓库配置
   const [presetConfig, setPresetConfig] = useState<PresetRepositoryConfig | null>(null)
+
+  // 团队和项目选择状态
+  const [selectedTeam, setSelectedTeam] = useState<BusinessTeam | null>(null)
+  const [selectedProject, setSelectedProject] = useState<PresetRepository | null>(null)
+  const [showTeamSelection, setShowTeamSelection] = useState(true)
+
+  // 搜索和筛选状态
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filteredProjects, setFilteredProjects] = useState<PresetRepository[]>([])
 
   // 认证相关状态
   const [showAuthSetup, setShowAuthSetup] = useState(false)
@@ -39,8 +54,12 @@ export function useAuthManagement() {
   useEffect(() => {
     const loadPresetConfig = async () => {
       try {
+        console.log('开始加载预置仓库配置...')
         const result = await api.getPresetRepositoryConfig()
+        console.log('预置仓库配置加载结果:', result)
+
         if (result.success && result.data) {
+          console.log('预置仓库配置加载成功，团队数量:', result.data.businessTeams?.length)
           setPresetConfig(result.data)
         } else {
           console.warn('加载预置仓库配置失败:', result.error)
@@ -99,6 +118,28 @@ export function useAuthManagement() {
     loadGlobalAuthStatus()
   }, [])
 
+  // 项目筛选逻辑
+  useEffect(() => {
+    if (!selectedTeam) {
+      setFilteredProjects([])
+      return
+    }
+
+    let filtered = selectedTeam.repositories || []
+
+    // 按搜索关键词筛选
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (project) =>
+          project.name.toLowerCase().includes(query) ||
+          project.description.toLowerCase().includes(query)
+      )
+    }
+
+    setFilteredProjects(filtered)
+  }, [selectedTeam, searchQuery])
+
   // 保存认证信息
   const saveCredentials = async () => {
     setAuthValidating(true)
@@ -130,8 +171,29 @@ export function useAuthManagement() {
     }
   }
 
+  // 团队选择操作
+  const selectTeam = (team: BusinessTeam) => {
+    setSelectedTeam(team)
+    setSelectedProject(null)
+    setShowTeamSelection(false)
+    setSearchQuery('')
+  }
+
+  // 返回团队选择
+  const backToTeamSelection = () => {
+    setSelectedTeam(null)
+    setSelectedProject(null)
+    setShowTeamSelection(true)
+    setSearchQuery('')
+  }
+
+  // 项目选择操作
+  const selectProject = (project: PresetRepository) => {
+    setSelectedProject(project)
+  }
+
   return {
-    // 状态
+    // 基础状态
     importMode,
     globalAuthStatus,
     presetConfig,
@@ -143,7 +205,14 @@ export function useAuthManagement() {
     authValidationResult,
     loadingAuthStatus,
 
-    // 设置函数
+    // 团队和项目选择状态
+    selectedTeam,
+    selectedProject,
+    showTeamSelection,
+    searchQuery,
+    filteredProjects,
+
+    // 基础设置函数
     setImportMode,
     setGlobalAuthStatus,
     setShowAuthSetup,
@@ -151,6 +220,12 @@ export function useAuthManagement() {
     setAuthSetupType,
     setSetupCredentials,
     setAuthValidationResult,
+
+    // 团队和项目操作函数
+    selectTeam,
+    backToTeamSelection,
+    selectProject,
+    setSearchQuery,
 
     // 操作函数
     saveCredentials

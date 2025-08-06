@@ -17,6 +17,7 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
+    publicDir: resolve('public'),
     plugins: [react(), tailwindcss()],
     build: {
       chunkSizeWarningLimit: 2000,
