@@ -186,4 +186,155 @@ export class SetupWizardApi extends ApiClient {
       return await api.setupWizardImportProject(localPath)
     }, 'Failed to import project')
   }
+
+  /**
+   * Gets preset repository configuration
+   * @returns Promise resolving to preset repository config
+   */
+  static async getPresetRepositoryConfig(): Promise<{
+    success: boolean
+    data?: any
+    error?: string
+  }> {
+    return this.handleApiCall(async () => {
+      // 从 public 或者使用 fetch 加载配置文件
+      try {
+        const response = await fetch('/config/preset-repositories.json')
+        if (!response.ok) {
+          throw new Error('Failed to fetch preset repository config')
+        }
+        const config = await response.json()
+        return {
+          success: true,
+          data: config
+        }
+      } catch (error) {
+        // 如果加载失败，返回一个默认配置
+        const defaultConfig = {
+          version: '1.0.0',
+          lastUpdated: new Date().toISOString(),
+          businessTeams: [],
+          popularTags: [],
+          settings: {
+            enableSearch: true,
+            enableTagFilter: true,
+            defaultImportMode: 'custom'
+          }
+        }
+        return {
+          success: true,
+          data: defaultConfig
+        }
+      }
+    }, 'Failed to load preset repository configuration')
+  }
+
+  /**
+   * Searches preset repositories
+   * @param query - Search query string
+   * @param teamId - Optional team ID to filter by
+   * @param tags - Optional tags to filter by
+   * @returns Promise resolving to search results
+   */
+  static async searchPresetRepositories(
+    query: string,
+    teamId?: string,
+    tags?: string[]
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    return this.handleApiCall(async () => {
+      const configResult = await this.getPresetRepositoryConfig()
+      if (!configResult.success || !configResult.data) {
+        throw new Error('Failed to load preset repository configuration')
+      }
+
+      const config = configResult.data
+      let allRepositories: any[] = []
+      let filteredTeams = config.businessTeams
+
+      // 按团队筛选
+      if (teamId) {
+        filteredTeams = config.businessTeams.filter((team: any) => team.teamId === teamId)
+      }
+
+      // 收集所有仓库
+      filteredTeams.forEach((team: any) => {
+        team.repositories.forEach((repo: any) => {
+          allRepositories.push({
+            ...repo,
+            teamId: team.teamId,
+            teamName: team.teamName
+          })
+        })
+      })
+
+      // 文本搜索
+      if (query.trim()) {
+        const queryLower = query.toLowerCase()
+        allRepositories = allRepositories.filter(
+          (repo: any) =>
+            repo.name.toLowerCase().includes(queryLower) ||
+            repo.description.toLowerCase().includes(queryLower) ||
+            repo.teamName.toLowerCase().includes(queryLower) ||
+            (repo.tags && repo.tags.some((tag: string) => tag.toLowerCase().includes(queryLower)))
+        )
+      }
+
+      // 标签筛选
+      if (tags && tags.length > 0) {
+        allRepositories = allRepositories.filter(
+          (repo: any) => repo.tags && tags.some((tag: string) => repo.tags.includes(tag))
+        )
+      }
+
+      return {
+        success: true,
+        data: {
+          repositories: allRepositories,
+          teams: filteredTeams,
+          totalCount: allRepositories.length,
+          searchQuery: query,
+          appliedTags: tags || []
+        }
+      }
+    }, 'Failed to search preset repositories')
+  }
+
+  /**
+   * Gets global authentication status
+   * @returns Promise resolving to auth status
+   */
+  static async getGlobalAuthStatus(): Promise<{ success: boolean; data?: any; error?: string }> {
+    return this.handleApiCall(async () => {
+      const api = this.getApi()
+
+      // 检查是否有保存的Aone认证
+      const aoneResult = await api.hasAoneCredentials()
+      if (aoneResult.success && aoneResult.data?.hasCredentials) {
+        const credentialsInfo = await api.getAoneCredentialsInfo()
+        return {
+          success: true,
+          data: {
+            hasCredentials: true,
+            authType: 'aone',
+            accountInfo: credentialsInfo.success
+              ? {
+                  domainAccount: credentialsInfo.data?.domain_account
+                }
+              : undefined,
+            lastSaved: credentialsInfo.data?.updated_at
+          }
+        }
+      }
+
+      // 未来可以扩展其他认证类型检查...
+
+      return {
+        success: true,
+        data: {
+          hasCredentials: false,
+          authType: null
+        }
+      }
+    }, 'Failed to get global auth status')
+  }
 }

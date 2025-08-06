@@ -1,35 +1,24 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import {
-  FolderOpen,
-  GitBranch,
-  Download,
-  Plus,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  Info,
-  Trash2
-} from 'lucide-react'
+import { FolderOpen, GitBranch, Plus, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import type {
-  SetupWizardState,
-  ApiConfiguration,
-  RepositoryConfiguration,
-  EnvironmentStatus,
-  RepositoryCloneProgress,
-  RepositoryType,
-  AoneAuthInfo
-} from '@/types/setupWizard'
-import { WizardStep } from '@/types/setupWizard'
-import { api } from '@/lib/api'
+import type { SetupWizardState, RepositoryConfiguration } from '@/types/setupWizard'
+import { WizardStep, ImportMode } from '@/types/setupWizard'
+
+// 导入自定义 Hook
+import { useRepositoryImport } from '@/hooks/useRepositoryImport'
+import { useAuthManagement } from '@/hooks/useAuthManagement'
+import { useFolderSelection } from '@/hooks/useFolderSelection'
+
+// 导入子组件
+import { ImportModeSelector } from './components/ImportModeSelector'
+import { PresetRepositoryPanel } from './components/PresetRepositoryPanel'
+import { CustomRepositoryPanel } from './components/CustomRepositoryPanel'
+import { LocalProjectPanel } from './components/LocalProjectPanel'
+import { NewProjectPanel } from './components/NewProjectPanel'
+import { ImportStatusCard } from './components/ImportStatusCard'
+import { AuthenticationDialog } from './components/AuthenticationDialog'
 
 interface RepositoryImportStepProps {
   state: SetupWizardState
@@ -38,17 +27,12 @@ interface RepositoryImportStepProps {
   onComplete: (step: WizardStep) => void
   onError: (step: WizardStep, error: string) => void
   onClearError: (step: WizardStep) => void
-  updateApiConfiguration: (config: Partial<ApiConfiguration>) => void
+  updateApiConfiguration: (config: any) => void
   updateRepositoryConfiguration: (config: Partial<RepositoryConfiguration>) => void
-  updateEnvironmentStatus: (status: Partial<EnvironmentStatus>) => void
+  updateEnvironmentStatus: (status: any) => void
   canProceed: boolean
 }
 
-/**
- * 仓库导入步骤组件
- *
- * 导入现有项目或创建新项目
- */
 export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   state,
   onComplete,
@@ -57,315 +41,127 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
   updateRepositoryConfiguration
 }) => {
   const [activeTab, setActiveTab] = useState<'clone' | 'local' | 'create'>('clone')
-  const [importing, setImporting] = useState(false)
 
-  // 获取用户主目录并构建默认路径
-  const homeDir = state.userData.environmentStatus?.systemInfo?.homeDir
-  const defaultClonePath = homeDir ? `${homeDir}/.Catalyst/projects` : '~/.Catalyst/projects'
-
-  // 跟踪路径是否被用户手动修改
-  const isPathCustomized = useRef(false)
-
-  // 克隆仓库状态
+  // URL 验证状态
   const [cloneUrl, setCloneUrl] = useState('')
-  const [clonePath, setClonePath] = useState(defaultClonePath)
   const [cloneBranch, setCloneBranch] = useState('master')
-
-  // 当系统信息更新时同步更新默认路径
-  useEffect(() => {
-    if (homeDir && !isPathCustomized.current) {
-      const newDefaultPath = `${homeDir}/.Catalyst/projects`
-      setClonePath(newDefaultPath)
-    }
-  }, [homeDir])
-
-  // 本地项目状态
-  const [localPath, setLocalPath] = useState('')
-
-  // 新项目状态
   const [projectName, setProjectName] = useState('')
-  const [projectPath, setProjectPath] = useState('')
 
-  const [validationResult, setValidationResult] = useState<{
-    valid: boolean
-    error?: string
-    repoInfo?: any
-    projectInfo?: any
-  } | null>(null)
-  const [urlValidating, setUrlValidating] = useState(false)
-  const [cloneProgress, setCloneProgress] = useState<RepositoryCloneProgress | null>(null)
-  const [folderSelectError, setFolderSelectError] = useState<string | null>(null)
-
-  // Aone 相关状态
-  const [repositoryType, setRepositoryType] = useState<RepositoryType>('aone' as RepositoryType)
-  const [aoneAuth, setAoneAuth] = useState<AoneAuthInfo>({
-    domainAccount: '',
-    privateToken: ''
+  // 使用自定义 Hook
+  const repositoryImport = useRepositoryImport({
+    onComplete,
+    onError,
+    onClearError,
+    updateRepositoryConfiguration
   })
-  const [loadingCredentials, setLoadingCredentials] = useState(false)
-  const [credentialsSource, setCredentialsSource] = useState<'saved' | 'manual' | null>(null)
-  const [clearingCredentials, setClearingCredentials] = useState(false)
 
-  // 验证仓库URL
-  const validateRepositoryUrl = useCallback(async (url: string) => {
-    if (!url.trim()) return
+  const authManagement = useAuthManagement()
+  const folderSelection = useFolderSelection()
 
-    setUrlValidating(true)
-    try {
-      const result = await api.setupWizardValidateRepository(url)
-      if (result.success && result.data) {
-        return result.data
-      } else {
-        throw new Error(result.error || '仓库验证失败')
-      }
-    } catch (error) {
-      console.error('Repository validation failed:', error)
-      return null
-    } finally {
-      setUrlValidating(false)
+  // 设置用户主目录
+  useEffect(() => {
+    const homeDir = state.userData.environmentStatus?.systemInfo?.homeDir
+    if (homeDir) {
+      folderSelection.setHomeDir(homeDir)
     }
-  }, [])
+  }, [state.userData.environmentStatus?.systemInfo?.homeDir])
 
   // URL变化时自动验证
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (cloneUrl.trim() && activeTab === 'clone') {
-        validateRepositoryUrl(cloneUrl)
+        repositoryImport.validateRepositoryUrl(cloneUrl)
       }
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [cloneUrl, activeTab, validateRepositoryUrl])
-
-  // 加载已保存的Aone认证信息
-  useEffect(() => {
-    const loadSavedCredentials = async () => {
-      if (repositoryType === 'aone') {
-        setLoadingCredentials(true)
-        try {
-          const savedCredentials = await api.getAoneCredentials()
-          if (savedCredentials) {
-            setAoneAuth(savedCredentials)
-            setCredentialsSource('saved')
-            console.log('已加载保存的Aone认证信息:', savedCredentials.domainAccount)
-          } else {
-            setCredentialsSource('manual')
-          }
-        } catch (error) {
-          console.warn('加载已保存的Aone认证信息失败:', error)
-          setCredentialsSource('manual')
-        } finally {
-          setLoadingCredentials(false)
-        }
-      } else {
-        // 如果不是Aone仓库，清空认证信息
-        setAoneAuth({ domainAccount: '', privateToken: '' })
-        setCredentialsSource(null)
-      }
-    }
-
-    loadSavedCredentials()
-  }, [repositoryType])
-
-  // 清除已保存的认证信息
-  const clearSavedCredentials = async () => {
-    setClearingCredentials(true)
-    try {
-      await api.deleteAoneCredentials()
-      setAoneAuth({ domainAccount: '', privateToken: '' })
-      setCredentialsSource('manual')
-      console.log('已清除保存的Aone认证信息')
-    } catch (error) {
-      console.error('清除Aone认证信息失败:', error)
-    } finally {
-      setClearingCredentials(false)
-    }
-  }
+  }, [cloneUrl, activeTab, repositoryImport.validateRepositoryUrl])
 
   // 监听克隆进度事件
   useEffect(() => {
-    const handleCloneProgress = (_: any, data: RepositoryCloneProgress) => {
-      setCloneProgress(data)
+    const handleCloneProgress = (_: any, data: any) => {
+      repositoryImport.setCloneProgress(data)
     }
 
-    // 注册事件监听器
     if (window.electron) {
       window.electron.ipcRenderer.on('setup-wizard-clone-progress', handleCloneProgress)
     }
 
     return () => {
-      // 清理事件监听器
       if (window.electron) {
         window.electron.ipcRenderer.removeAllListeners('setup-wizard-clone-progress')
       }
     }
-  }, [])
+  }, [repositoryImport.setCloneProgress])
 
-  // 验证并导入项目
-  const importProject = async () => {
-    setImporting(true)
-    onClearError(WizardStep.REPOSITORY_IMPORT)
-    setValidationResult(null)
-    setCloneProgress(null)
-
-    try {
-      let config: Partial<RepositoryConfiguration> = {}
-      let result: any
-
-      switch (activeTab) {
-        case 'clone':
-          if (!cloneUrl.trim()) {
-            throw new Error('仓库URL不能为空')
-          }
-
-          // 首先验证仓库URL
-          const validation = await validateRepositoryUrl(cloneUrl)
-          if (!validation || !validation.valid) {
-            throw new Error(validation?.error || '仓库URL无效')
-          }
-
-          // 执行克隆
-          result = await api.setupWizardCloneRepository({
-            url: cloneUrl,
-            localPath: clonePath || undefined,
-            repositoryType,
-            aoneAuth: repositoryType === 'aone' ? aoneAuth : undefined,
-            options: {
-              branch: cloneBranch || 'master',
-              depth: 1 // 浅克隆以提高速度
-            }
-          })
-
-          if (!result.success) {
-            throw new Error(result.error || '仓库克隆失败')
-          }
-
-          config = {
-            url: cloneUrl,
-            localPath: result.data.localPath,
-            projectName: validation.repoName,
-            branch: cloneBranch || 'master',
-            isPrivate: validation.isPrivate
-          }
-
-          setValidationResult({
-            valid: true,
-            repoInfo: validation,
-            projectInfo: result.data.projectInfo
-          })
-          break
-
-        case 'local':
-          if (!localPath.trim()) {
-            throw new Error('项目路径不能为空')
-          }
-
-          // 导入本地项目
-          result = await api.setupWizardImportProject(localPath)
-
-          if (!result.success) {
-            throw new Error(result.error || '项目导入失败')
-          }
-
-          config = {
-            localPath: localPath,
-            projectName: result.data.project?.name || localPath.split('/').pop() || 'project'
-          }
-
-          setValidationResult({
-            valid: true,
-            projectInfo: result.data.project
-          })
-          break
-
-        case 'create':
-          if (!projectName.trim()) {
-            throw new Error('项目名称不能为空')
-          }
-          if (!projectPath.trim()) {
-            throw new Error('项目路径不能为空')
-          }
-
-          // 创建新项目（这里可能需要实现项目模板创建）
-          const fullPath = `${projectPath}/${projectName}`
-
-          config = {
-            projectName: projectName,
-            localPath: fullPath
-          }
-
-          setValidationResult({ valid: true })
-          break
-      }
-
-      updateRepositoryConfiguration(config)
-      onComplete(WizardStep.REPOSITORY_IMPORT)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      onError(WizardStep.REPOSITORY_IMPORT, `导入失败: ${errorMessage}`)
-      setValidationResult({ valid: false, error: errorMessage })
-    } finally {
-      setImporting(false)
-      setCloneProgress(null)
-    }
-  }
-
-  // 选择本地文件夹
-  const selectFolder = async (type: 'clone' | 'local' | 'create') => {
-    // 清除之前的错误
-    setFolderSelectError(null)
-
-    try {
-      // 使用 Electron 的文件对话框
-      const result = await window.electron.dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        title: `选择${type === 'clone' ? '克隆目标' : type === 'local' ? '项目' : '创建'}目录`
-      })
-
-      if (result && !result.canceled && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0]
-
-        switch (type) {
-          case 'clone':
-            setClonePath(selectedPath)
-            // 标记路径已被用户自定义
-            isPathCustomized.current = true
-            break
-          case 'local':
-            setLocalPath(selectedPath)
-            break
-          case 'create':
-            setProjectPath(selectedPath)
-            break
-        }
-      }
-    } catch (error) {
-      console.error('Failed to select folder:', error)
-      const errorMessage = error instanceof Error ? error.message : '文件选择失败'
-      setFolderSelectError(`无法打开文件选择对话框: ${errorMessage}`)
-    }
-  }
-
-  const canImport = () => {
+  // 导入项目处理函数
+  const handleImportProject = useCallback(async () => {
     switch (activeTab) {
       case 'clone':
-        const hasUrl = cloneUrl.trim() && !urlValidating
-        if (repositoryType === 'aone') {
-          // 如果正在加载或清除认证信息，等待操作完成
-          if (loadingCredentials || clearingCredentials) {
-            return false
-          }
-          return hasUrl && aoneAuth.domainAccount.trim() && aoneAuth.privateToken.trim()
-        }
-        return hasUrl
+        await repositoryImport.importProject('clone', {
+          cloneUrl,
+          clonePath: folderSelection.clonePath,
+          cloneBranch
+          // Note: 自定义模式的仓库类型和认证信息由 CustomRepositoryPanel 内部处理
+        })
+        break
+
       case 'local':
-        return localPath.trim()
+        await repositoryImport.importProject('local', {
+          localPath: folderSelection.localPath
+        })
+        break
+
       case 'create':
-        return projectName.trim() && projectPath.trim()
+        await repositoryImport.importProject('create', {
+          projectName,
+          projectPath: folderSelection.projectPath
+        })
+        break
+    }
+  }, [
+    activeTab,
+    cloneUrl,
+    cloneBranch,
+    projectName,
+    folderSelection.clonePath,
+    folderSelection.localPath,
+    folderSelection.projectPath,
+    repositoryImport.importProject
+  ])
+
+  // 检查是否可以导入
+  const canImport = useCallback(() => {
+    switch (activeTab) {
+      case 'clone':
+        if (authManagement.importMode === ImportMode.PRESET) {
+          // 预置模式需要认证
+          return (
+            cloneUrl.trim() &&
+            !repositoryImport.urlValidating &&
+            authManagement.globalAuthStatus.isAuthenticated
+          )
+        } else {
+          // 自定义模式的验证逻辑在 CustomRepositoryPanel 中处理
+          return cloneUrl.trim() && !repositoryImport.urlValidating
+        }
+      case 'local':
+        return folderSelection.localPath.trim()
+      case 'create':
+        return projectName.trim() && folderSelection.projectPath.trim()
       default:
         return false
     }
-  }
+  }, [
+    activeTab,
+    cloneUrl,
+    projectName,
+    authManagement.importMode,
+    authManagement.globalAuthStatus.isAuthenticated,
+    repositoryImport.urlValidating,
+    folderSelection.localPath,
+    folderSelection.projectPath
+  ])
 
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto">
@@ -409,418 +205,92 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
 
           {/* 克隆远程仓库 */}
           <TabsContent value="clone" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">克隆Git仓库</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 仓库类型选择 */}
-                <div className="space-y-3">
-                  <Label>仓库类型</Label>
-                  <RadioGroup
-                    value={repositoryType}
-                    onValueChange={(value) => setRepositoryType(value as RepositoryType)}
-                    className="flex gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="aone" id="aone" />
-                      <Label htmlFor="aone" className="cursor-pointer">
-                        Aone (推荐)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="other" id="other" />
-                      <Label htmlFor="other" className="cursor-pointer">
-                        其他 Git 仓库
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+            <ImportModeSelector
+              importMode={authManagement.importMode}
+              onModeChange={authManagement.setImportMode}
+            />
 
-                <div className="space-y-2">
-                  <Label htmlFor="cloneUrl">仓库URL</Label>
-                  <div className="relative">
-                    <Input
-                      id="cloneUrl"
-                      type="url"
-                      value={cloneUrl}
-                      onChange={(e) => setCloneUrl(e.target.value)}
-                      placeholder={
-                        repositoryType === 'aone'
-                          ? 'https://code.alibaba-inc.com/owner/repository.git'
-                          : 'https://github.com/username/repository.git 或 username/repository'
-                      }
-                      className="font-mono text-sm pr-10"
-                    />
-                    {urlValidating && (
-                      <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {repositoryType === 'aone'
-                      ? '请输入完整的 Aone 仓库 URL'
-                      : '支持完整URL或GitHub简写形式 (如: microsoft/vscode)'}
-                  </p>
-                </div>
+            {authManagement.importMode === ImportMode.PRESET && (
+              <PresetRepositoryPanel
+                globalAuthStatus={authManagement.globalAuthStatus}
+                presetConfig={authManagement.presetConfig}
+                loadingAuthStatus={authManagement.loadingAuthStatus}
+                onShowAuthSetup={() => authManagement.setShowAuthSetup(true)}
+              />
+            )}
 
-                {/* Aone 认证表单 */}
-                {repositoryType === 'aone' && (
-                  <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                        {loadingCredentials && <Loader2 className="w-4 h-4 animate-spin" />}
-                        Aone 认证信息
-                        {credentialsSource === 'saved' && (
-                          <Badge
-                            variant="secondary"
-                            className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          >
-                            已保存
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      {credentialsSource === 'saved' && (
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-blue-600 dark:text-blue-400">
-                            正在使用已保存的认证信息：{aoneAuth.domainAccount}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={clearSavedCredentials}
-                            disabled={clearingCredentials}
-                            className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                          >
-                            {clearingCredentials ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                清除
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {loadingCredentials ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                          <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
-                            加载已保存的认证信息...
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            <Label htmlFor="domainAccount">域账号</Label>
-                            <Input
-                              id="domainAccount"
-                              value={aoneAuth.domainAccount}
-                              onChange={(e) => {
-                                setAoneAuth((prev) => ({ ...prev, domainAccount: e.target.value }))
-                                if (credentialsSource === 'saved') {
-                                  setCredentialsSource('manual')
-                                }
-                              }}
-                              placeholder="your.name"
-                              className="font-mono text-sm"
-                              disabled={loadingCredentials}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="privateToken">Private Token</Label>
-                            <Input
-                              id="privateToken"
-                              type="password"
-                              value={aoneAuth.privateToken}
-                              onChange={(e) => {
-                                setAoneAuth((prev) => ({ ...prev, privateToken: e.target.value }))
-                                if (credentialsSource === 'saved') {
-                                  setCredentialsSource('manual')
-                                }
-                              }}
-                              placeholder="••••••••••••••••••••"
-                              className="font-mono text-sm"
-                              disabled={loadingCredentials}
-                            />
-                          </div>
-                        </>
-                      )}
-                      {!loadingCredentials && (
-                        <>
-                          <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <span>
-                              <a
-                                href="https://code.alibaba-inc.com/profile/account"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 dark:text-blue-400 hover:underline"
-                              >
-                                通过此链接获取个人Private-Token
-                              </a>
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="clonePath">本地目录</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="clonePath"
-                      value={clonePath}
-                      onChange={(e) => {
-                        setClonePath(e.target.value)
-                        setFolderSelectError(null)
-                        // 标记路径已被用户自定义
-                        isPathCustomized.current = true
-                      }}
-                      placeholder={defaultClonePath}
-                      className="flex-1"
-                    />
-                    <Button variant="outline" onClick={() => selectFolder('clone')}>
-                      选择
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Info className="h-4 w-4" />
-                    <span>项目将被克隆到此目录下。默认使用 {defaultClonePath} 目录。</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cloneBranch">分支 (可选)</Label>
-                  <Input
-                    id="cloneBranch"
-                    value={cloneBranch}
-                    onChange={(e) => setCloneBranch(e.target.value)}
-                    placeholder="master"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            {authManagement.importMode === ImportMode.CUSTOM && (
+              <CustomRepositoryPanel
+                cloneUrl={cloneUrl}
+                onUrlChange={setCloneUrl}
+                clonePath={folderSelection.clonePath}
+                onPathChange={folderSelection.updatePath.bind(null, 'clone')}
+                cloneBranch={cloneBranch}
+                onBranchChange={setCloneBranch}
+                defaultClonePath={folderSelection.defaultClonePath}
+                urlValidating={repositoryImport.urlValidating}
+                onSelectFolder={() => folderSelection.selectFolder('clone')}
+              />
+            )}
           </TabsContent>
 
           {/* 导入本地项目 */}
           <TabsContent value="local" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">导入本地项目</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="localPath">项目目录</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="localPath"
-                      value={localPath}
-                      onChange={(e) => {
-                        setLocalPath(e.target.value)
-                        setFolderSelectError(null)
-                      }}
-                      placeholder="/Users/username/my-project"
-                      className="flex-1"
-                    />
-                    <Button variant="outline" onClick={() => selectFolder('local')}>
-                      选择
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">请选择包含您项目文件的目录</p>
-                </div>
-              </CardContent>
-            </Card>
+            <LocalProjectPanel
+              localPath={folderSelection.localPath}
+              onPathChange={folderSelection.updatePath.bind(null, 'local')}
+              onSelectFolder={() => folderSelection.selectFolder('local')}
+            />
           </TabsContent>
 
           {/* 创建新项目 */}
           <TabsContent value="create" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">创建新项目</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="projectName">项目名称</Label>
-                  <Input
-                    id="projectName"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="my-awesome-project"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="projectPath">创建位置</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="projectPath"
-                      value={projectPath}
-                      onChange={(e) => {
-                        setProjectPath(e.target.value)
-                        setFolderSelectError(null)
-                      }}
-                      placeholder="/Users/username/Projects"
-                      className="flex-1"
-                    />
-                    <Button variant="outline" onClick={() => selectFolder('create')}>
-                      选择
-                    </Button>
-                  </div>
-                  {projectName && projectPath && (
-                    <p className="text-xs text-muted-foreground">
-                      项目将创建在: {projectPath}/{projectName}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <NewProjectPanel
+              projectName={projectName}
+              onNameChange={setProjectName}
+              projectPath={folderSelection.projectPath}
+              onPathChange={folderSelection.updatePath.bind(null, 'create')}
+              onSelectFolder={() => folderSelection.selectFolder('create')}
+            />
           </TabsContent>
         </Tabs>
 
-        {/* 导入状态 */}
-        {importing && (
-          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                <div>
-                  <p className="font-medium text-blue-800 dark:text-blue-200">正在导入项目...</p>
-                  <p className="text-sm text-blue-600 dark:text-blue-300">
-                    {activeTab === 'clone' && (cloneProgress?.message || '正在克隆远程仓库...')}
-                    {activeTab === 'local' && '正在验证本地项目...'}
-                    {activeTab === 'create' && '正在创建新项目...'}
-                  </p>
-                </div>
-              </div>
-
-              {/* 克隆进度条 */}
-              {activeTab === 'clone' && cloneProgress && (
-                <div className="space-y-2">
-                  <Progress value={cloneProgress.progress} className="h-2" />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{cloneProgress.status}</span>
-                    <span>{cloneProgress.progress}%</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 验证结果 */}
-        {validationResult && !importing && (
-          <Card
-            className={`${
-              validationResult.valid
-                ? 'border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800'
-                : 'border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800'
-            }`}
-          >
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-start gap-3">
-                {validationResult.valid ? (
-                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                )}
-                <div className="flex-1">
-                  <p
-                    className={`font-medium ${
-                      validationResult.valid
-                        ? 'text-green-800 dark:text-green-200'
-                        : 'text-red-800 dark:text-red-200'
-                    }`}
-                  >
-                    {validationResult.valid ? '项目导入成功' : '导入失败'}
-                  </p>
-                  {validationResult.error && (
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                      {validationResult.error}
-                    </p>
-                  )}
-                  {validationResult.valid && (
-                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                      项目已成功导入，可以继续下一步
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* 项目信息展示 */}
-              {validationResult.valid &&
-                (validationResult.repoInfo || validationResult.projectInfo) && (
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border">
-                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                      <Info className="w-4 h-4" />
-                      项目信息
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      {validationResult.repoInfo && (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">仓库:</span>
-                            <div className="flex items-center gap-2">
-                              <span>{validationResult.repoInfo.repoName}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {validationResult.repoInfo.platform}
-                              </Badge>
-                              {validationResult.repoInfo.isPrivate && (
-                                <Badge variant="secondary" className="text-xs">
-                                  私有
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          {validationResult.repoInfo.owner && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">所有者:</span>
-                              <span>{validationResult.repoInfo.owner}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 文件选择错误显示 */}
-        {folderSelectError && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium text-red-800 dark:text-red-200">文件选择失败</p>
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">{folderSelectError}</p>
-                  <p className="text-xs text-red-500 dark:text-red-500 mt-2">
-                    您可以尝试手动输入路径，或联系技术支持。
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* 状态显示 */}
+        <ImportStatusCard
+          importing={repositoryImport.importing}
+          activeTab={activeTab}
+          cloneProgress={repositoryImport.cloneProgress}
+          validationResult={repositoryImport.validationResult}
+          folderSelectError={folderSelection.folderSelectError}
+        />
 
         {/* 导入按钮 */}
         <div className="flex justify-center pt-4">
           <Button
-            onClick={importProject}
-            disabled={importing || !canImport()}
+            onClick={handleImportProject}
+            disabled={repositoryImport.importing || !canImport()}
             className="flex items-center gap-2"
           >
-            {importing && <Loader2 className="w-4 h-4 animate-spin" />}
+            {repositoryImport.importing && <Loader2 className="w-4 h-4 animate-spin" />}
             <Download className="w-4 h-4" />
-            {importing ? '导入中...' : '导入项目'}
+            {repositoryImport.importing ? '导入中...' : '导入项目'}
           </Button>
         </div>
+
+        {/* 认证对话框 */}
+        <AuthenticationDialog
+          showAuthSetup={authManagement.showAuthSetup}
+          onToggleAuthSetup={authManagement.setShowAuthSetup}
+          authSetupType={authManagement.authSetupType}
+          onSetupTypeChange={authManagement.setAuthSetupType}
+          setupCredentials={authManagement.setupCredentials}
+          onCredentialsChange={authManagement.setSetupCredentials}
+          authValidating={authManagement.authValidating}
+          authValidationResult={authManagement.authValidationResult}
+          onSaveCredentials={authManagement.saveCredentials}
+          showAuthExpiredDialog={authManagement.showAuthExpiredDialog}
+          onToggleAuthExpiredDialog={authManagement.setShowAuthExpiredDialog}
+        />
       </motion.div>
     </div>
   )

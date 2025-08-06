@@ -150,6 +150,9 @@ export const api = {
   setupWizardBatchInstall: SetupWizardApi.setupWizardBatchInstall.bind(SetupWizardApi),
   setupWizardValidateRepository: SetupWizardApi.setupWizardValidateRepository.bind(SetupWizardApi),
   setupWizardImportProject: SetupWizardApi.setupWizardImportProject.bind(SetupWizardApi),
+  getPresetRepositoryConfig: SetupWizardApi.getPresetRepositoryConfig.bind(SetupWizardApi),
+  searchPresetRepositories: SetupWizardApi.searchPresetRepositories.bind(SetupWizardApi),
+  getGlobalAuthStatus: SetupWizardApi.getGlobalAuthStatus.bind(SetupWizardApi),
 
   // Aone credentials management
   getAoneCredentials: AoneApi.getAoneCredentials.bind(AoneApi),

@@ -508,7 +508,6 @@ function App() {
           onSettingsClick={() => handleViewChange('settings')}
           onUsageClick={() => handleViewChange('usage-dashboard')}
           onMCPClick={() => handleViewChange('mcp')}
-          onInfoClick={() => setShowNFO(true)}
           onConfigWizardClick={() => handleViewChange('setup-wizard')}
         />
 

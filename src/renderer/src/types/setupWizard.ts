@@ -227,6 +227,80 @@ export const ERROR_CODES = {
   UNKNOWN_ERROR: 'UNKNOWN_ERROR'
 } as const
 
+// 导入模式枚举
+export enum ImportMode {
+  PRESET = 'preset',
+  CUSTOM = 'custom'
+}
+
+// 全局认证状态
+export interface GlobalAuthStatus {
+  isAuthenticated: boolean
+  authType: 'aone' | 'github' | 'gitlab' | null
+  credentials: AoneAuthInfo | null
+  lastChecked: Date | null
+  accountInfo?: {
+    domainAccount: string
+  }
+}
+
+// 预置仓库项目
+export interface PresetRepository {
+  repoId: string
+  name: string
+  description: string
+  url: string
+  type: RepositoryType
+  defaultBranch: string
+  isPrivate: boolean
+  tags?: string[]
+  lastUpdated?: string
+  accessLevel?: 'public' | 'internal' | 'private'
+}
+
+// 业务团队
+export interface BusinessTeam {
+  teamId: string
+  teamName: string
+  teamDesc: string
+  teamIcon?: string
+  repositories: PresetRepository[]
+  tags?: string[]
+  displayOrder?: number
+}
+
+// 预置仓库根配置
+export interface PresetRepositoryConfig {
+  version: string
+  lastUpdated: string
+  businessTeams: BusinessTeam[]
+  popularTags: string[]
+  settings?: {
+    enableSearch: boolean
+    enableTagFilter: boolean
+    defaultImportMode: ImportMode
+  }
+}
+
+// 预置仓库搜索结果
+export interface PresetSearchResult {
+  repositories: PresetRepository[]
+  teams: BusinessTeam[]
+  totalCount: number
+  searchQuery: string
+  appliedTags: string[]
+}
+
+// 认证状态检查响应
+export interface AuthStatusResponse {
+  hasCredentials: boolean
+  authType: 'aone' | 'github' | 'gitlab' | null
+  accountInfo?: {
+    domainAccount: string
+  }
+  lastSaved?: string
+}
+
 // 导出类型守卫
 export function isSetupWizardState(obj: any): obj is SetupWizardState {
   return (
@@ -248,5 +322,45 @@ export function isRepositoryConfiguration(obj: any): obj is RepositoryConfigurat
     typeof obj.url === 'string' &&
     typeof obj.localPath === 'string' &&
     typeof obj.projectName === 'string'
+  )
+}
+
+export function isPresetRepositoryConfig(obj: any): obj is PresetRepositoryConfig {
+  return (
+    obj &&
+    typeof obj.version === 'string' &&
+    typeof obj.lastUpdated === 'string' &&
+    Array.isArray(obj.businessTeams) &&
+    Array.isArray(obj.popularTags)
+  )
+}
+
+export function isBusinessTeam(obj: any): obj is BusinessTeam {
+  return (
+    obj &&
+    typeof obj.teamId === 'string' &&
+    typeof obj.teamName === 'string' &&
+    typeof obj.teamDesc === 'string' &&
+    Array.isArray(obj.repositories)
+  )
+}
+
+export function isPresetRepository(obj: any): obj is PresetRepository {
+  return (
+    obj &&
+    typeof obj.repoId === 'string' &&
+    typeof obj.name === 'string' &&
+    typeof obj.description === 'string' &&
+    typeof obj.url === 'string' &&
+    typeof obj.defaultBranch === 'string' &&
+    typeof obj.isPrivate === 'boolean'
+  )
+}
+
+export function isGlobalAuthStatus(obj: any): obj is GlobalAuthStatus {
+  return (
+    obj &&
+    typeof obj.isAuthenticated === 'boolean' &&
+    (obj.authType === null || typeof obj.authType === 'string')
   )
 }

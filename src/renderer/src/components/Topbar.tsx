@@ -1,16 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import {
-  Circle,
-  FileText,
-  Settings,
-  ExternalLink,
-  BarChart3,
-  Network,
-  Info,
-  Wand2
-} from 'lucide-react'
+import { Circle, FileText, Settings, ExternalLink, BarChart3, Network, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { api, type ClaudeVersionStatus } from '@/lib/api'
@@ -34,10 +25,6 @@ interface TopbarProps {
    * Callback when MCP is clicked
    */
   onMCPClick: () => void
-  /**
-   * Callback when Info is clicked
-   */
-  onInfoClick: () => void
   /**
    * Callback when Config Wizard is clicked
    */
@@ -64,7 +51,6 @@ export const Topbar: React.FC<TopbarProps> = ({
   onSettingsClick,
   onUsageClick,
   onMCPClick,
-  onInfoClick,
   onConfigWizardClick,
   className
 }) => {
