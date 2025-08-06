@@ -150,15 +150,12 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     queuedPromptsRef.current = queuedPrompts
   }, [queuedPrompts])
 
-  // 获取默认项目路径
+  // 获取默认项目路径（仅用于文件选择对话框的默认位置）
   useEffect(() => {
     const loadDefaultPath = async () => {
       const defaultPath = await getDefaultProjectsPath()
       setDefaultProjectsPath(defaultPath)
-      // 如果当前没有设置项目路径，使用默认路径
-      if (!projectPath && !initialProjectPath && !session?.project_path) {
-        setProjectPath(defaultPath)
-      }
+      // 注意：不要自动设置 projectPath，让用户手动选择
     }
     loadDefaultPath()
   }, [])
@@ -570,11 +567,23 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
 
   const handleSelectPath = async () => {
     try {
-      const selected = await open({
+      const options: any = {
         properties: ['openDirectory'],
-        title: 'Select Project Directory',
-        defaultPath: defaultProjectsPath || undefined
-      })
+        title: 'Select Project Directory'
+      }
+
+      // 只有在有有效路径时才设置 defaultPath
+      // 排除展示用的路径（包含 ~ 或 [用户名]）
+      if (
+        defaultProjectsPath &&
+        defaultProjectsPath !== '' &&
+        !defaultProjectsPath.includes('~') &&
+        !defaultProjectsPath.includes('[用户名]')
+      ) {
+        options.defaultPath = defaultProjectsPath
+      }
+
+      const selected = await open(options)
 
       if (selected) {
         setProjectPath(selected as string)
@@ -1075,7 +1084,18 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
               <Terminal className="h-5 w-5 text-muted-foreground" />
               <div className="flex-1">
                 <p className="text-sm text-muted-foreground">
-                  {projectPath ? `${projectPath}` : t('status.noProject')}
+                  {projectPath ? (
+                    `${projectPath}`
+                  ) : (
+                    <>
+                      {t('status.noProject')}
+                      {defaultProjectsPath && (
+                        <span className="text-xs opacity-70 ml-2">
+                          ( 项目默认导入路径: {defaultProjectsPath})
+                        </span>
+                      )}
+                    </>
+                  )}
                 </p>
               </div>
             </div>

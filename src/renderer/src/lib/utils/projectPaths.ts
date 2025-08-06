@@ -13,6 +13,13 @@ export async function getDefaultProjectsPath(): Promise<string> {
       return `${cachedHomeDir}/.Catalyst/projects`
     }
 
+    // 尝试从 Electron 环境获取
+    if (window.electron?.process?.env?.HOME) {
+      const homeDir = window.electron.process.env.HOME
+      localStorage.setItem('userHomeDir', homeDir)
+      return `${homeDir}/.Catalyst/projects`
+    }
+
     // 如果没有缓存，调用 API 获取环境信息
     const result = await api.setupWizardDetectEnvironment()
     if (result.success && result.data?.systemInfo?.homeDir) {
@@ -22,11 +29,15 @@ export async function getDefaultProjectsPath(): Promise<string> {
       return `${homeDir}/.Catalyst/projects`
     }
 
-    // 如果获取失败，返回默认值
+    // 如果都失败了，返回一个展示用的路径
+    // 根据平台返回合理的展示路径
+    const platform = window.electron?.process?.platform
+    if (platform === 'win32') {
+      return 'C:\\Users\\[用户名]\\.Catalyst\\projects'
+    }
     return '~/.Catalyst/projects'
   } catch (error) {
-    console.warn('Failed to get default projects path:', error)
-    // 出错时返回默认值
+    // 出错时返回展示用的路径
     return '~/.Catalyst/projects'
   }
 }
