@@ -42,7 +42,7 @@ interface ExtendedSoftwareStatus {
   key: 'git' | 'nodejs' | 'npm' | 'claudeCli'
   installed: boolean
   version?: string
-path?: string
+  path?: string
   error?: string
   checking: boolean
   installing: boolean

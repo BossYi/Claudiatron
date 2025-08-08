@@ -10,7 +10,7 @@
 
 import { EventEmitter } from 'events'
 import { promises as fs } from 'fs'
-import { createWriteStream } from 'fs'
+import { createWriteStream, createReadStream } from 'fs'
 import { join, dirname } from 'path'
 import * as os from 'os'
 import { promisify } from 'util'
@@ -18,6 +18,7 @@ import { exec, spawn } from 'child_process'
 import * as https from 'https'
 import * as http from 'http'
 import { URL } from 'url'
+import { createHash } from 'crypto'
 import type { InstallationProgress } from '../types/setupWizard'
 
 const execAsync = promisify(exec)
@@ -36,6 +37,8 @@ export interface InstallationPackage {
   filename: string
   /** 文件大小（字节） */
   size?: number
+  /** SHA256哈希值 */
+  sha256?: string
   /** 平台特定信息 */
   platform: NodeJS.Platform
   /** 架构 */
@@ -60,6 +63,8 @@ export interface InstallationOptions {
   cleanup?: boolean
   /** 自定义安装参数 */
   customArgs?: string[]
+  /** 强制重新下载，忽略缓存文件 */
+  forceRedownload?: boolean
 }
 
 /**
@@ -184,7 +189,7 @@ export abstract class BaseInstallationManager extends EventEmitter {
 
       // 5. 下载安装包
       this.reportProgress('downloading', 25, '开始下载安装包...')
-      const packagePath = await this.downloadPackage(packageInfo)
+      const packagePath = await this.downloadPackage(packageInfo, options.forceRedownload)
 
       // 6. 验证完整性
       this.reportProgress('downloading', 80, '验证文件完整性...')
@@ -243,7 +248,10 @@ export abstract class BaseInstallationManager extends EventEmitter {
   /**
    * 下载安装包
    */
-  protected async downloadPackage(packageInfo: InstallationPackage): Promise<string> {
+  protected async downloadPackage(
+    packageInfo: InstallationPackage,
+    forceRedownload = false
+  ): Promise<string> {
     const tempFilePath = join(
       this.tempDir,
       `${packageInfo.name}-${packageInfo.version}-${packageInfo.filename}`
@@ -252,13 +260,23 @@ export abstract class BaseInstallationManager extends EventEmitter {
     this.log(`下载到: ${tempFilePath}`, 'debug')
 
     try {
-      // 检查是否已存在文件
-      try {
-        await fs.access(tempFilePath)
-        this.log('找到缓存文件，跳过下载', 'info')
-        return tempFilePath
-      } catch {
-        // 文件不存在，继续下载
+      // 检查是否需要强制重新下载
+      if (forceRedownload) {
+        try {
+          await fs.unlink(tempFilePath)
+          this.log('强制重新下载，已删除缓存文件', 'info')
+        } catch {
+          // 文件不存在，忽略错误
+        }
+      } else {
+        // 检查是否已存在文件
+        try {
+          await fs.access(tempFilePath)
+          this.log('找到缓存文件，跳过下载', 'info')
+          return tempFilePath
+        } catch {
+          // 文件不存在，继续下载
+        }
       }
 
       // 确保目录存在
@@ -410,13 +428,34 @@ export abstract class BaseInstallationManager extends EventEmitter {
    */
   protected async verifyPackageIntegrity(
     filePath: string,
-    _packageInfo: InstallationPackage
+    packageInfo: InstallationPackage
   ): Promise<void> {
-    // 跳过文件完整性校验，只检查文件是否存在
     try {
+      // 检查文件是否存在
       await fs.access(filePath)
-      this.log('文件存在，跳过完整性校验', 'info')
+      this.log('文件存在，开始完整性校验', 'info')
+
+      // 如果提供了SHA256哈希值，进行校验
+      if (packageInfo.sha256) {
+        const calculatedHash = await this.calculateSHA256(filePath)
+        const expectedHash = packageInfo.sha256.toLowerCase()
+
+        if (calculatedHash !== expectedHash) {
+          throw new Error(
+            `文件完整性校验失败\n` +
+              `预期 SHA256: ${expectedHash}\n` +
+              `实际 SHA256: ${calculatedHash}`
+          )
+        }
+
+        this.log(`SHA256校验成功: ${calculatedHash}`, 'info')
+      } else {
+        this.log('未提供SHA256哈希值，跳过完整性校验', 'warning')
+      }
     } catch (error) {
+      if (error instanceof Error && error.message.includes('文件完整性校验失败')) {
+        throw error
+      }
       throw new Error(`文件不存在: ${filePath}`)
     }
   }
@@ -615,6 +654,29 @@ export abstract class BaseInstallationManager extends EventEmitter {
    */
   public getLogs(): string[] {
     return [...this.logEntries]
+  }
+
+  /**
+   * 计算文件SHA256哈希值
+   */
+  private async calculateSHA256(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = createHash('sha256')
+      const stream = createReadStream(filePath)
+
+      stream.on('error', (error) => {
+        reject(new Error(`读取文件失败: ${error.message}`))
+      })
+
+      stream.on('data', (data) => {
+        hash.update(data)
+      })
+
+      stream.on('end', () => {
+        const calculatedHash = hash.digest('hex')
+        resolve(calculatedHash)
+      })
+    })
   }
 
   /**

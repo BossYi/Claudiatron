@@ -33,6 +33,7 @@ interface NodeJsPackageConfig {
     downloadUrl: string
     filename: string
     size: number
+    sha256: string
     installArgs: string[]
   }
   macos: {
@@ -40,6 +41,7 @@ interface NodeJsPackageConfig {
     downloadUrl: string
     filename: string
     size: number
+    sha256: string
     installArgs: string[]
   }
   linux: {
@@ -47,6 +49,7 @@ interface NodeJsPackageConfig {
     downloadUrl: string
     filename: string
     size: number
+    sha256: string
     setupScript: string
   }
 }
@@ -80,6 +83,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi',
       filename: 'node-v20.11.0-x64.msi',
       size: 30 * 1024 * 1024, // 30MB
+      sha256: '9a8c2e99b1fca559e1a1a393d6be4a23781b0c66883a9d6e5584272d9bf49dc2', // Node.js 20.11.0 Windows x64 MSI SHA256
       installArgs: ['/quiet', '/norestart']
     },
     macos: {
@@ -87,6 +91,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0.pkg',
       filename: 'node-v20.11.0.pkg',
       size: 28 * 1024 * 1024, // 28MB
+      sha256: 'e2acb2da96b455a9b8ce9c88f7f00eabeda75d2724e6789dfe65ee71b50298c2', // Node.js 20.11.0 macOS PKG SHA256
       installArgs: []
     },
     linux: {
@@ -94,6 +99,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz',
       filename: 'node-v20.11.0-linux-x64.tar.xz',
       size: 25 * 1024 * 1024, // 25MB
+      sha256: '822780369d0ea309e7d218e41debbd1a03f8cdf354ebf8a4420e89f39cc2e612', // Node.js 20.11.0 Linux x64 TAR.XZ SHA256
       setupScript: 'https://deb.nodesource.com/setup_lts.x'
     }
   }
@@ -145,6 +151,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           downloadUrl: `${baseUrl}v${targetVersion}/${winFilename}`,
           filename: winFilename,
           size: packageConfig.windows.size,
+          sha256: packageConfig.windows.sha256,
           platform: this.platform,
           arch: this.arch
         }
@@ -158,6 +165,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           downloadUrl: `${baseUrl}v${targetVersion}/${macFilename}`,
           filename: macFilename,
           size: packageConfig.macos.size,
+          sha256: packageConfig.macos.sha256,
           platform: this.platform,
           arch: this.arch
         }
@@ -172,6 +180,7 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           downloadUrl: `${baseUrl}v${targetVersion}/${linuxFilename}`,
           filename: linuxFilename,
           size: packageConfig.linux.size,
+          sha256: packageConfig.linux.sha256,
           platform: this.platform,
           arch: this.arch
         }
