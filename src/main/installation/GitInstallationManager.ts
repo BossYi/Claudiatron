@@ -64,15 +64,15 @@ export class GitInstallationManager extends BaseInstallationManager {
       installArgs: ['/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/CLOSEAPPLICATIONS']
     },
     macos: {
-      version: '2.43.0',
+      version: '2.33.0',
       downloadUrl:
-        'https://github.com/git-for-windows/git/releases/download/v2.43.0/git-2.43.0-intel-universal-mavericks.dmg',
-      filename: 'git-2.43.0-intel-universal-mavericks.dmg',
+        'https://onboardcloud.dl.sourceforge.net/project/git-osx-installer/git-2.33.0-intel-universal-mavericks.dmg?viasf=1',
+      filename: 'git-2.33.0-intel-universal-mavericks.dmg',
       size: 45 * 1024 * 1024, // 45MB
       installArgs: []
     },
     linux: {
-      version: '2.43.0',
+      version: '2.33.0',
       packageName: 'git',
       installCommand: ['git']
     }
