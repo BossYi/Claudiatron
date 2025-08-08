@@ -96,8 +96,6 @@ export class ClaudeCodeInstallationManager extends BaseInstallationManager {
       version: packageVersion,
       downloadUrl: '', // npm 安装不需要下载URL
       filename: '',
-      checksumType: 'sha256',
-      checksum: '', // npm 会自动处理包验证
       platform: this.platform,
       arch: this.arch
     }

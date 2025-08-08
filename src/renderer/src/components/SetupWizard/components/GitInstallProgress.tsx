@@ -106,7 +106,7 @@ export const GitInstallProgress: React.FC<GitInstallProgressProps> = ({
     {
       platform: 'Windows',
       steps: [
-        '访问 Git 官网：https://git-scm.com/download/win',
+        '直接下载：https://github.com/git-for-windows/git/releases/download/v2.50.1.windows.1/Git-2.50.1-64-bit.exe',
         '下载适合您系统的安装包',
         '运行安装程序并按照向导完成安装',
         '重启终端或命令提示符',

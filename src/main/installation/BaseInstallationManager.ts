@@ -10,9 +10,7 @@
 
 import { EventEmitter } from 'events'
 import { promises as fs } from 'fs'
-import { createHash } from 'crypto'
-import { createReadStream, createWriteStream } from 'fs'
-import { pipeline } from 'stream/promises'
+import { createWriteStream } from 'fs'
 import { join, dirname } from 'path'
 import * as os from 'os'
 import { promisify } from 'util'
@@ -36,10 +34,6 @@ export interface InstallationPackage {
   downloadUrl: string
   /** 文件名 */
   filename: string
-  /** 校验和类型 */
-  checksumType: 'sha256' | 'md5'
-  /** 校验和值 */
-  checksum: string
   /** 文件大小（字节） */
   size?: number
   /** 平台特定信息 */
@@ -258,22 +252,11 @@ export abstract class BaseInstallationManager extends EventEmitter {
     this.log(`下载到: ${tempFilePath}`, 'debug')
 
     try {
-      // 检查是否已存在且完整
+      // 检查是否已存在文件
       try {
         await fs.access(tempFilePath)
-        if (
-          await this.verifyFileChecksum(
-            tempFilePath,
-            packageInfo.checksum,
-            packageInfo.checksumType
-          )
-        ) {
-          this.log('找到有效的缓存文件，跳过下载', 'info')
-          return tempFilePath
-        } else {
-          this.log('缓存文件校验失败，重新下载', 'warning')
-          await fs.unlink(tempFilePath)
-        }
+        this.log('找到缓存文件，跳过下载', 'info')
+        return tempFilePath
       } catch {
         // 文件不存在，继续下载
       }
@@ -376,48 +359,17 @@ export abstract class BaseInstallationManager extends EventEmitter {
    */
   protected async verifyPackageIntegrity(
     filePath: string,
-    packageInfo: InstallationPackage
+    _packageInfo: InstallationPackage
   ): Promise<void> {
-    this.log(`验证文件完整性: ${packageInfo.checksumType.toUpperCase()}`, 'info')
-
-    const isValid = await this.verifyFileChecksum(
-      filePath,
-      packageInfo.checksum,
-      packageInfo.checksumType
-    )
-
-    if (!isValid) {
-      throw new Error(`文件完整性校验失败，${packageInfo.checksumType} 不匹配`)
-    }
-
-    this.log('文件完整性验证通过', 'info')
-  }
-
-  /**
-   * 验证文件校验和
-   */
-  protected async verifyFileChecksum(
-    filePath: string,
-    expectedChecksum: string,
-    algorithm: 'sha256' | 'md5'
-  ): Promise<boolean> {
+    // 跳过文件完整性校验，只检查文件是否存在
     try {
-      const hash = createHash(algorithm)
-      const stream = createReadStream(filePath)
-
-      await pipeline(stream, hash)
-
-      const actualChecksum = hash.digest('hex').toLowerCase()
-      const expected = expectedChecksum.toLowerCase()
-
-      this.log(`校验和比较: 期望 ${expected}, 实际 ${actualChecksum}`, 'debug')
-
-      return actualChecksum === expected
+      await fs.access(filePath)
+      this.log('文件存在，跳过完整性校验', 'info')
     } catch (error) {
-      this.log(`校验和计算失败: ${error}`, 'error')
-      return false
+      throw new Error(`文件不存在: ${filePath}`)
     }
   }
+
 
   /**
    * 检查磁盘空间

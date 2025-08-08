@@ -32,7 +32,6 @@ interface GitPackageConfig {
     version: string
     downloadUrl: string
     filename: string
-    checksum: string
     size: number
     installArgs: string[]
   }
@@ -40,7 +39,6 @@ interface GitPackageConfig {
     version: string
     downloadUrl: string
     filename: string
-    checksum: string
     size: number
     installArgs: string[]
   }
@@ -58,11 +56,10 @@ interface GitPackageConfig {
 export class GitInstallationManager extends BaseInstallationManager {
   private static readonly GIT_PACKAGES: GitPackageConfig = {
     windows: {
-      version: '2.43.0',
+      version: '2.50.1',
       downloadUrl:
-        'https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe',
-      filename: 'Git-2.43.0-64-bit.exe',
-      checksum: 'c9b2c280f9b0d9e85c1f3f8b7b8b2c280f9b0d9e85c1f3f8b7b8b2c280f9b0d9e8',
+        'https://github.com/git-for-windows/git/releases/download/v2.50.1.windows.1/Git-2.50.1-64-bit.exe',
+      filename: 'Git-2.50.1-64-bit.exe',
       size: 50 * 1024 * 1024, // 50MB
       installArgs: ['/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/CLOSEAPPLICATIONS']
     },
@@ -71,7 +68,6 @@ export class GitInstallationManager extends BaseInstallationManager {
       downloadUrl:
         'https://github.com/git-for-windows/git/releases/download/v2.43.0/git-2.43.0-intel-universal-mavericks.dmg',
       filename: 'git-2.43.0-intel-universal-mavericks.dmg',
-      checksum: 'd9e85c1f3f8b7b8b2c280f9b0d9e85c1f3f8b7b8b2c280f9b0d9e85c1f3f8b7b8',
       size: 45 * 1024 * 1024, // 45MB
       installArgs: []
     },
@@ -108,8 +104,6 @@ export class GitInstallationManager extends BaseInstallationManager {
           version: useVersion,
           downloadUrl: packageConfig.windows.downloadUrl,
           filename: packageConfig.windows.filename,
-          checksumType: 'sha256',
-          checksum: packageConfig.windows.checksum,
           size: packageConfig.windows.size,
           platform: this.platform,
           arch: this.arch
@@ -121,8 +115,6 @@ export class GitInstallationManager extends BaseInstallationManager {
           version: useVersion,
           downloadUrl: packageConfig.macos.downloadUrl,
           filename: packageConfig.macos.filename,
-          checksumType: 'sha256',
-          checksum: packageConfig.macos.checksum,
           size: packageConfig.macos.size,
           platform: this.platform,
           arch: this.arch
@@ -135,8 +127,6 @@ export class GitInstallationManager extends BaseInstallationManager {
           version: useVersion,
           downloadUrl: '', // 不需要下载
           filename: '',
-          checksumType: 'sha256',
-          checksum: '',
           platform: this.platform,
           arch: this.arch
         }

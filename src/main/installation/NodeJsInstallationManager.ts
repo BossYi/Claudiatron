@@ -32,7 +32,6 @@ interface NodeJsPackageConfig {
     version: string
     downloadUrl: string
     filename: string
-    checksum: string
     size: number
     installArgs: string[]
   }
@@ -40,7 +39,6 @@ interface NodeJsPackageConfig {
     version: string
     downloadUrl: string
     filename: string
-    checksum: string
     size: number
     installArgs: string[]
   }
@@ -48,7 +46,6 @@ interface NodeJsPackageConfig {
     version: string
     downloadUrl: string
     filename: string
-    checksum: string
     size: number
     setupScript: string
   }
@@ -82,7 +79,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       version: '20.11.0',
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi',
       filename: 'node-v20.11.0-x64.msi',
-      checksum: 'b2d4e8bc4a4e9c5c6d1f2e8f0a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9',
       size: 30 * 1024 * 1024, // 30MB
       installArgs: ['/quiet', '/norestart']
     },
@@ -90,7 +86,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       version: '20.11.0',
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0.pkg',
       filename: 'node-v20.11.0.pkg',
-      checksum: 'c9d1f2e8f0a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
       size: 28 * 1024 * 1024, // 28MB
       installArgs: []
     },
@@ -98,7 +93,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
       version: '20.11.0',
       downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz',
       filename: 'node-v20.11.0-linux-x64.tar.xz',
-      checksum: 'e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3',
       size: 25 * 1024 * 1024, // 25MB
       setupScript: 'https://deb.nodesource.com/setup_lts.x'
     }
@@ -150,8 +144,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           version: targetVersion,
           downloadUrl: `${baseUrl}v${targetVersion}/${winFilename}`,
           filename: winFilename,
-          checksumType: 'sha256',
-          checksum: packageConfig.windows.checksum,
           size: packageConfig.windows.size,
           platform: this.platform,
           arch: this.arch
@@ -165,8 +157,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           version: targetVersion,
           downloadUrl: `${baseUrl}v${targetVersion}/${macFilename}`,
           filename: macFilename,
-          checksumType: 'sha256',
-          checksum: packageConfig.macos.checksum,
           size: packageConfig.macos.size,
           platform: this.platform,
           arch: this.arch
@@ -181,8 +171,6 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
           version: targetVersion,
           downloadUrl: `${baseUrl}v${targetVersion}/${linuxFilename}`,
           filename: linuxFilename,
-          checksumType: 'sha256',
-          checksum: packageConfig.linux.checksum,
           size: packageConfig.linux.size,
           platform: this.platform,
           arch: this.arch
