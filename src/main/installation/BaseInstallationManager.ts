@@ -282,28 +282,66 @@ export abstract class BaseInstallationManager extends EventEmitter {
   }
 
   /**
-   * 使用原生 HTTP/HTTPS 模块下载文件
+   * 使用原生 HTTP/HTTPS 模块下载文件，支持重定向处理
    */
-  private async downloadWithNativeHttp(url: string, filePath: string): Promise<void> {
+  private async downloadWithNativeHttp(
+    url: string,
+    filePath: string,
+    redirectCount: number = 0
+  ): Promise<void> {
+    const maxRedirects = 5
+
+    if (redirectCount > maxRedirects) {
+      throw new Error(`下载失败：重定向次数超过限制 (${maxRedirects})`)
+    }
+
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url)
       const isHttps = parsedUrl.protocol === 'https:'
       const httpModule = isHttps ? https : http
 
-      const writer = createWriteStream(filePath)
+      let writer: ReturnType<typeof createWriteStream> | null = null
       let downloadedSize = 0
       let totalSize = 0
       const startTime = Date.now()
 
+      this.log(`开始下载: ${url}${redirectCount > 0 ? ` (重定向 #${redirectCount})` : ''}`, 'debug')
+
       const request = httpModule.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`))
+        const statusCode = response.statusCode || 0
+
+        // 处理重定向 (301, 302, 307, 308)
+        if ([301, 302, 307, 308].includes(statusCode)) {
+          const redirectUrl = response.headers.location
+          if (!redirectUrl) {
+            reject(new Error(`HTTP ${statusCode}: 重定向缺少 Location 头`))
+            return
+          }
+
+          this.log(`收到重定向 ${statusCode} -> ${redirectUrl}`, 'debug')
+
+          // 递归调用处理重定向
+          this.downloadWithNativeHttp(redirectUrl, filePath, redirectCount + 1)
+            .then(resolve)
+            .catch(reject)
           return
         }
 
+        // 检查成功状态码
+        if (statusCode !== 200) {
+          reject(new Error(`HTTP ${statusCode}: ${response.statusMessage || 'Unknown error'}`))
+          return
+        }
+
+        // 创建文件写入流
+        writer = createWriteStream(filePath)
         totalSize = parseInt(response.headers['content-length'] || '0')
 
+        this.log(`开始下载文件，大小: ${this.formatBytes(totalSize)}`, 'info')
+
         response.on('data', (chunk) => {
+          if (!writer) return
+
           downloadedSize += chunk.length
           writer.write(chunk)
 
@@ -333,23 +371,36 @@ export abstract class BaseInstallationManager extends EventEmitter {
         })
 
         response.on('end', () => {
-          writer.end()
+          if (writer) {
+            writer.end()
+            this.log(`下载完成: ${this.formatBytes(downloadedSize)}`, 'info')
+          }
           resolve()
         })
 
         response.on('error', (error) => {
-          writer.destroy()
+          if (writer) {
+            writer.destroy()
+          }
+          this.log(`下载响应错误: ${error.message}`, 'error')
           reject(error)
         })
       })
 
       request.on('error', (error) => {
-        writer.destroy()
+        if (writer) {
+          writer.destroy()
+        }
+        this.log(`下载请求错误: ${error.message}`, 'error')
         reject(error)
       })
 
-      writer.on('error', (error) => {
-        reject(error)
+      request.setTimeout(30000, () => {
+        request.destroy()
+        if (writer) {
+          writer.destroy()
+        }
+        reject(new Error('下载超时 (30秒)'))
       })
     })
   }
@@ -369,7 +420,6 @@ export abstract class BaseInstallationManager extends EventEmitter {
       throw new Error(`文件不存在: ${filePath}`)
     }
   }
-
 
   /**
    * 检查磁盘空间
