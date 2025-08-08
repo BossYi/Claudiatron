@@ -152,8 +152,6 @@ export interface ComprehensiveGitStatus {
  */
 export class GitDetectionService extends EventEmitter {
   private static instance: GitDetectionService
-  private cache: Map<string, { data: ComprehensiveGitStatus; timestamp: number }> = new Map()
-  private readonly CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存
   private readonly MIN_GIT_VERSION = '2.20.0'
   private readonly RECOMMENDED_GIT_VERSION = '2.40.0'
 
@@ -174,18 +172,8 @@ export class GitDetectionService extends EventEmitter {
   /**
    * 执行完整的Git检测和分析
    */
-  public async performComprehensiveDetection(useCache = true): Promise<ComprehensiveGitStatus> {
+  public async performComprehensiveDetection(): Promise<ComprehensiveGitStatus> {
     const startTime = Date.now()
-    const cacheKey = `comprehensive-${process.platform}-${process.arch}`
-
-    // 检查缓存
-    if (useCache) {
-      const cached = this.cache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        this.emit('detection-completed', cached.data)
-        return cached.data
-      }
-    }
 
     this.emit('detection-started')
 
@@ -206,12 +194,6 @@ export class GitDetectionService extends EventEmitter {
         detectionTimestamp: Date.now(),
         detectionDuration: Date.now() - startTime
       }
-
-      // 缓存结果
-      this.cache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now()
-      })
 
       this.emit('detection-completed', result)
       return result
@@ -428,14 +410,6 @@ export class GitDetectionService extends EventEmitter {
         error: `Git检测失败: ${error instanceof Error ? error.message : String(error)}`
       }
     }
-  }
-
-  /**
-   * 清除检测缓存
-   */
-  public clearCache(): void {
-    this.cache.clear()
-    this.emit('cache-cleared')
   }
 
   // ========== 私有辅助方法 ==========

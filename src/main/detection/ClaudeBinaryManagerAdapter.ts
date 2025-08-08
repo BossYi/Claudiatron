@@ -26,8 +26,6 @@ export interface ClaudeVersionInfo {
  * 兼容原有 ClaudeBinaryManager 接口的适配器
  */
 class ClaudeBinaryManagerAdapter {
-  private cachedResult?: ClaudeDetectionResult
-
   /**
    * 查找 Claude 二进制文件路径
    * 兼容原有 findClaudeBinary() 接口
@@ -37,7 +35,6 @@ class ClaudeBinaryManagerAdapter {
 
     // 每次都执行新的检测，不使用缓存
     const result = await claudeDetectionManager.detectClaude()
-    this.cachedResult = result
 
     if (result.success && result.claudePath) {
       console.log('Claude detected successfully:', result.claudePath)
@@ -102,8 +99,7 @@ class ClaudeBinaryManagerAdapter {
     // 保存到数据库设置
     await appSettingsService.setClaudeBinaryPath(path)
 
-    // 清除缓存，强制重新检测
-    this.cachedResult = undefined
+    // 强制重新检测
   }
 
   /**
@@ -116,8 +112,7 @@ class ClaudeBinaryManagerAdapter {
     // 清除数据库中的自定义路径
     await appSettingsService.setClaudeBinaryPath('')
 
-    // 清除缓存并重新检测
-    this.cachedResult = undefined
+    // 重新检测
     await claudeDetectionManager.redetectClaude()
   }
 
@@ -209,9 +204,7 @@ class ClaudeBinaryManagerAdapter {
    */
   async redetectClaude(): Promise<ClaudeDetectionResult> {
     console.log('ClaudeBinaryManagerAdapter: Performing fresh detection...')
-    this.cachedResult = undefined
     const result = await claudeDetectionManager.redetectClaude()
-    this.cachedResult = result
     return result
   }
 
@@ -219,7 +212,7 @@ class ClaudeBinaryManagerAdapter {
    * 获取最后的检测结果（新增方法）
    */
   getLastDetectionResult(): ClaudeDetectionResult | undefined {
-    return this.cachedResult || claudeDetectionManager.getLastDetectionResult()
+    return claudeDetectionManager.getLastDetectionResult()
   }
 
   /**

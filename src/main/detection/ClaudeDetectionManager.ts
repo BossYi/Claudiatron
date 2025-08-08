@@ -79,11 +79,10 @@ export class ClaudeDetectionManager implements ClaudeExecutor {
   }
 
   /**
-   * 重新检测 Claude（清除缓存）
+   * 重新检测 Claude
    */
   async redetectClaude(): Promise<ClaudeDetectionResult> {
-    console.log('Performing fresh Claude detection (clearing cache)...')
-    await this.clearCache()
+    console.log('Performing fresh Claude detection...')
     return this.detectClaude()
   }
 
@@ -174,7 +173,6 @@ export class ClaudeDetectionManager implements ClaudeExecutor {
     platform: string
     executionMethod: string
     lastDetectionTime?: number
-    cacheHit?: boolean
   }> {
     const result = this.lastDetectionResult || (await this.detectClaude())
     const platformInfo = this.getPlatformInfo()
@@ -185,19 +183,7 @@ export class ClaudeDetectionManager implements ClaudeExecutor {
       version: result.version,
       platform: platformInfo.platform,
       executionMethod: platformInfo.executionMethod,
-      lastDetectionTime: Date.now(),
-      cacheHit: result.detectionMethod === 'cache'
-    }
-  }
-
-  /**
-   * 清除检测缓存
-   */
-  private async clearCache(): Promise<void> {
-    try {
-      await (this.detector as any).clearCache?.()
-    } catch (error) {
-      console.warn('Failed to clear cache:', error)
+      lastDetectionTime: Date.now()
     }
   }
 

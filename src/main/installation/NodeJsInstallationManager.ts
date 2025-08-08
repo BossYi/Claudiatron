@@ -13,7 +13,7 @@
  * - 版本管理和兼容性检查
  */
 
-import { join } from 'path'
+import { join, resolve, isAbsolute } from 'path'
 import { promises as fs } from 'fs'
 import * as os from 'os'
 import {
@@ -345,22 +345,52 @@ export class NodeJsInstallationManager extends BaseInstallationManager {
     packagePath: string,
     options: InstallationOptions
   ): Promise<InstallationResult> {
+    // 验证并规范化安装文件路径
+    const normalizedPackagePath = resolve(packagePath)
+
+    // 详细记录路径信息
+    this.log(`收到的安装文件路径: ${packagePath}`, 'debug')
+    this.log(`规范化后的路径: ${normalizedPackagePath}`, 'debug')
+    this.log(`是否为绝对路径: ${isAbsolute(normalizedPackagePath)}`, 'debug')
+
+    // 验证安装文件是否存在
+    try {
+      await fs.access(normalizedPackagePath)
+      const stats = await fs.stat(normalizedPackagePath)
+      this.log(`安装文件大小: ${this.formatBytes(stats.size)}`, 'debug')
+    } catch (error) {
+      throw new Error(`安装文件不存在或无法访问: ${normalizedPackagePath}\n错误: ${error}`)
+    }
+
     const packageConfig = NodeJsInstallationManager.NODEJS_PACKAGES.windows
     const installDir = options.installDir || 'C:\\Program Files\\nodejs'
 
     // 构建安装参数
-    const installArgs = [...packageConfig.installArgs, `INSTALLDIR="${installDir}"`]
+    // 注意：spawn会自动处理参数中的空格，不需要手动添加引号
+    const installArgs = [...packageConfig.installArgs, `INSTALLDIR=${installDir}`]
 
     if (options.customArgs) {
       installArgs.push(...options.customArgs)
     }
 
-    this.log(`执行Windows安装命令: msiexec /i "${packagePath}" ${installArgs.join(' ')}`, 'debug')
+    this.log(
+      `执行Windows安装命令: msiexec /i "${normalizedPackagePath}" ${installArgs.join(' ')}`,
+      'debug'
+    )
+    this.log(`工作目录: ${this.tempDir}`, 'debug')
+
+    // 验证msiexec命令的完整参数
+    const fullCommand = ['msiexec', '/i', normalizedPackagePath, ...installArgs]
+    this.log(`完整命令数组: ${JSON.stringify(fullCommand)}`, 'debug')
 
     // 执行安装
-    const result = await this.executeCommand('msiexec', ['/i', packagePath, ...installArgs], {
-      cwd: this.tempDir
-    })
+    const result = await this.executeCommand(
+      'msiexec',
+      ['/i', normalizedPackagePath, ...installArgs],
+      {
+        cwd: this.tempDir
+      }
+    )
 
     if (result.exitCode !== 0) {
       throw new Error(`MSI安装失败，退出代码: ${result.exitCode}\n${result.stderr}`)

@@ -18,7 +18,6 @@ export class WindowsClaudeDetector extends PlatformClaudeDetector {
     // 1. 直接检测 Claude 命令
     const directResult = await this.detectDirectly()
     if (directResult.success) {
-      await this.cacheResult(directResult)
       this.claudePath = directResult.claudePath
       this.version = directResult.version
       return directResult
@@ -27,7 +26,6 @@ export class WindowsClaudeDetector extends PlatformClaudeDetector {
     // 2. 通过包管理器检测
     const packageManagerResult = await this.detectViaPackageManagers()
     if (packageManagerResult.success) {
-      await this.cacheResult(packageManagerResult)
       this.claudePath = packageManagerResult.claudePath
       this.version = packageManagerResult.version
       return packageManagerResult
@@ -44,7 +42,6 @@ export class WindowsClaudeDetector extends PlatformClaudeDetector {
     // 4. 未找到 Claude
     console.log('Claude not found on Windows system')
     const notFoundResult = this.createNotFoundResult()
-    await this.cacheResult(notFoundResult)
     return notFoundResult
   }
 

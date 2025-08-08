@@ -16,6 +16,7 @@ import {
 import type { ClaudeDetectionResult, ProcessResult, ExecutionOptions } from '../types'
 
 export class UnixClaudeDetector extends PlatformClaudeDetector {
+  private lastDetectionResult?: ClaudeDetectionResult
   /**
    * 执行 Claude 检测
    */
@@ -27,18 +28,18 @@ export class UnixClaudeDetector extends PlatformClaudeDetector {
     // 1. Shell 环境检测（最可靠的方式）
     const shellResult = await this.detectViaShell()
     if (shellResult.success) {
-      await this.cacheResult(shellResult)
       this.claudePath = shellResult.claudePath
       this.version = shellResult.version
+      this.lastDetectionResult = shellResult
       return shellResult
     }
 
     // 2. 直接执行尝试
     const directResult = await this.tryDirectExecution()
     if (directResult.success) {
-      await this.cacheResult(directResult)
       this.claudePath = directResult.claudePath
       this.version = directResult.version
+      this.lastDetectionResult = directResult
       return directResult
     }
 
@@ -47,13 +48,14 @@ export class UnixClaudeDetector extends PlatformClaudeDetector {
     if (userResult.success) {
       this.claudePath = userResult.claudePath
       this.version = userResult.version
+      this.lastDetectionResult = userResult
       return userResult
     }
 
     // 5. 未找到 Claude
     console.log('Claude not found on Unix system')
     const notFoundResult = this.createNotFoundResult()
-    await this.cacheResult(notFoundResult)
+    this.lastDetectionResult = notFoundResult
     return notFoundResult
   }
 
@@ -429,8 +431,7 @@ export class UnixClaudeDetector extends PlatformClaudeDetector {
     }
 
     // 如果检测到是通过包管理器安装的，使用对应的包管理器执行
-    const detectionResult = await this.getCachedResult()
-    const packageManager = detectionResult?.metadata?.packageManager
+    const packageManager = this.lastDetectionResult?.metadata?.packageManager
 
     if (packageManager) {
       const shell = process.env.SHELL || '/bin/bash'
@@ -487,8 +488,7 @@ export class UnixClaudeDetector extends PlatformClaudeDetector {
     console.log(`Starting interactive Claude session in ${workingDir}`)
 
     // 如果检测到是通过包管理器安装的，使用对应的包管理器启动
-    const detectionResult = await this.getCachedResult()
-    const packageManager = detectionResult?.metadata?.packageManager
+    const packageManager = this.lastDetectionResult?.metadata?.packageManager
     const shell = process.env.SHELL || '/bin/bash'
 
     if (packageManager) {

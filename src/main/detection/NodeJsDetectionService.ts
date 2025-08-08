@@ -99,8 +99,6 @@ export interface NodeJsDetailedStatus {
  */
 export class NodeJsDetectionService extends EventEmitter {
   private static instance: NodeJsDetectionService
-  private readonly cache = new Map<string, { data: any; timestamp: number }>()
-  private readonly CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
 
   // Node.js版本要求
   private readonly MIN_NODEJS_VERSION = '16.0.0'
@@ -134,16 +132,7 @@ export class NodeJsDetectionService extends EventEmitter {
   /**
    * 获取完整的Node.js环境状态
    */
-  public async getDetailedStatus(forceRefresh = false): Promise<NodeJsDetailedStatus> {
-    const cacheKey = 'detailed-status'
-
-    if (!forceRefresh) {
-      const cached = this.cache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        return cached.data
-      }
-    }
-
+  public async getDetailedStatus(): Promise<NodeJsDetailedStatus> {
     this.emit('detection-started')
 
     try {
@@ -160,12 +149,6 @@ export class NodeJsDetectionService extends EventEmitter {
         requirements,
         environment
       }
-
-      // 缓存结果
-      this.cache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now()
-      })
 
       this.emit('detection-completed', result)
       return result

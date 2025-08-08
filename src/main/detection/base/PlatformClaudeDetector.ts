@@ -2,12 +2,9 @@
  * 平台 Claude 检测器抽象基类
  */
 
-import { promises as fs } from 'fs'
-import { join } from 'path'
-import { homedir } from 'os'
+// 移除fs、join、homedir导入，不再需要文件缓存操作
 import type {
   ClaudeDetectionResult,
-  ClaudeDetectionCache,
   ProcessResult,
   ExecutionOptions,
   ClaudeExecutor
@@ -16,10 +13,9 @@ import type {
 export abstract class PlatformClaudeDetector implements ClaudeExecutor {
   protected claudePath?: string
   protected version?: string
-  protected cacheFile: string
 
   constructor() {
-    this.cacheFile = join(homedir(), '.catalyst', 'claude-detection-cache.json')
+    // 移除缓存文件相关初始化
   }
 
   /**
@@ -79,70 +75,7 @@ export abstract class PlatformClaudeDetector implements ClaudeExecutor {
     }
   }
 
-  /**
-   * 获取缓存的检测结果
-   */
-  protected async getCachedResult(): Promise<ClaudeDetectionResult | null> {
-    try {
-      const content = await fs.readFile(this.cacheFile, 'utf-8')
-      const cache: ClaudeDetectionCache = JSON.parse(content)
-
-      // 检查缓存是否过期
-      if (Date.now() - cache.timestamp > cache.ttl) {
-        return null
-      }
-
-      // 检查平台是否匹配
-      if (cache.platform !== process.platform) {
-        return null
-      }
-
-      return cache.result
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * 缓存检测结果
-   */
-  protected async cacheResult(result: ClaudeDetectionResult): Promise<void> {
-    try {
-      const cache: ClaudeDetectionCache = {
-        timestamp: Date.now(),
-        platform: process.platform,
-        result,
-        ttl: this.getTTL(result)
-      }
-
-      await fs.mkdir(join(homedir(), '.catalyst'), { recursive: true })
-      await fs.writeFile(this.cacheFile, JSON.stringify(cache, null, 2))
-    } catch (error) {
-      console.warn('Failed to cache Claude detection result:', error)
-    }
-  }
-
-  /**
-   * 清除缓存
-   */
-  protected async clearCache(): Promise<void> {
-    try {
-      await fs.unlink(this.cacheFile)
-    } catch {
-      // 文件不存在，忽略错误
-    }
-  }
-
-  /**
-   * 获取缓存 TTL
-   */
-  private getTTL(result: ClaudeDetectionResult): number {
-    // 成功检测：30分钟缓存
-    if (result.success) return 30 * 60 * 1000
-
-    // 失败检测：5分钟缓存（允许快速重试）
-    return 5 * 60 * 1000
-  }
+  // 移除所有缓存相关方法，改为实时检测
 
   /**
    * 解析版本号

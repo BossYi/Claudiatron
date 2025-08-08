@@ -11,7 +11,7 @@
 import { EventEmitter } from 'events'
 import { promises as fs } from 'fs'
 import { createWriteStream, createReadStream } from 'fs'
-import { join, dirname } from 'path'
+import { join, dirname, resolve, isAbsolute } from 'path'
 import * as os from 'os'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
@@ -252,12 +252,14 @@ export abstract class BaseInstallationManager extends EventEmitter {
     packageInfo: InstallationPackage,
     forceRedownload = false
   ): Promise<string> {
-    const tempFilePath = join(
-      this.tempDir,
-      `${packageInfo.name}-${packageInfo.version}-${packageInfo.filename}`
-    )
+    // 生成规范化的绝对路径
+    let tempFilePath = join(this.tempDir, packageInfo.filename)
+    tempFilePath = resolve(tempFilePath) // 确保是绝对路径
 
-    this.log(`下载到: ${tempFilePath}`, 'debug')
+    this.log(`临时目录: ${this.tempDir}`, 'debug')
+    this.log(`文件名: ${packageInfo.filename}`, 'debug')
+    this.log(`完整路径: ${tempFilePath}`, 'debug')
+    this.log(`是否绝对路径: ${isAbsolute(tempFilePath)}`, 'debug')
 
     try {
       // 检查是否需要强制重新下载
@@ -285,7 +287,10 @@ export abstract class BaseInstallationManager extends EventEmitter {
       // 使用原生 http/https 模块下载
       await this.downloadWithNativeHttp(packageInfo.downloadUrl, tempFilePath)
 
-      this.log(`下载完成`, 'info')
+      // 验证文件下载成功
+      await this.validateDownloadedFile(tempFilePath, packageInfo)
+
+      this.log(`下载完成，文件路径: ${tempFilePath}`, 'info')
       return tempFilePath
     } catch (error) {
       // 清理失败的下载
@@ -654,6 +659,39 @@ export abstract class BaseInstallationManager extends EventEmitter {
    */
   public getLogs(): string[] {
     return [...this.logEntries]
+  }
+
+  /**
+   * 验证下载的文件
+   */
+  private async validateDownloadedFile(
+    filePath: string,
+    packageInfo: InstallationPackage
+  ): Promise<void> {
+    try {
+      // 1. 检查文件是否存在
+      await fs.access(filePath)
+
+      // 2. 检查文件大小
+      const stats = await fs.stat(filePath)
+      this.log(`下载文件大小: ${this.formatBytes(stats.size)}`, 'debug')
+
+      if (packageInfo.size && stats.size !== packageInfo.size) {
+        this.log(
+          `文件大小不匹配，预期: ${this.formatBytes(packageInfo.size)}, 实际: ${this.formatBytes(stats.size)}`,
+          'warning'
+        )
+      }
+
+      // 3. 验证路径格式
+      if (!isAbsolute(filePath)) {
+        throw new Error(`文件路径不是绝对路径: ${filePath}`)
+      }
+
+      this.log(`文件验证通过: ${filePath}`, 'info')
+    } catch (error) {
+      throw new Error(`文件验证失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**

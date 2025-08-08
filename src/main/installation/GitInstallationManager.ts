@@ -479,7 +479,7 @@ export class GitInstallationManager extends BaseInstallationManager {
   /**
    * 验证安装是否成功
    */
-  protected async verifyInstallation(_installPath: string): Promise<{
+  protected async verifyInstallation(installPath: string): Promise<{
     valid: boolean
     version?: string
     executablePath?: string
@@ -487,20 +487,158 @@ export class GitInstallationManager extends BaseInstallationManager {
   }> {
     const issues: string[] = []
 
-    try {
-      // 1. 检查Git命令是否可用
-      const versionResult = await this.executeCommand('git', ['--version'])
+    this.log('开始验证Git安装...', 'info')
 
-      if (versionResult.exitCode !== 0) {
-        issues.push('Git命令执行失败')
+    try {
+      // 智能验证策略：优先绝对路径，备选PATH搜索，最后重试机制
+      const verificationResult = await this.performSmartVerification(installPath)
+
+      if (verificationResult.success) {
+        // 验证基本Git功能
+        await this.verifyGitFunctionality(verificationResult.executablePath!, issues)
+
+        this.log(`验证成功，Git版本: ${verificationResult.version}`, 'info')
+
+        return {
+          valid: issues.length === 0,
+          version: verificationResult.version,
+          executablePath: verificationResult.executablePath,
+          issues
+        }
+      } else {
+        issues.push(...verificationResult.issues)
         return { valid: false, issues }
       }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      issues.push(`安装验证异常: ${errorMsg}`)
+      this.log(`验证异常: ${errorMsg}`, 'error')
+      return { valid: false, issues }
+    }
+  }
 
-      // 2. 解析版本信息
+  /**
+   * 智能验证策略
+   */
+  private async performSmartVerification(installPath: string): Promise<{
+    success: boolean
+    version?: string
+    executablePath?: string
+    issues: string[]
+  }> {
+    const issues: string[] = []
+
+    // 策略1: 绝对路径验证（最可靠）
+    this.log('尝试绝对路径验证...', 'debug')
+    const absoluteResult = await this.verifyWithAbsolutePath(installPath)
+    if (absoluteResult.success) {
+      this.log('绝对路径验证成功', 'info')
+      return absoluteResult
+    }
+    issues.push(...absoluteResult.issues)
+
+    // 策略2: PATH环境变量验证
+    this.log('尝试PATH环境变量验证...', 'debug')
+    const pathResult = await this.verifyWithPath()
+    if (pathResult.success) {
+      this.log('PATH环境变量验证成功', 'info')
+      return pathResult
+    }
+    issues.push(...pathResult.issues)
+
+    // 策略3: 智能重试（刷新环境变量后重试）
+    if (this.platform === 'win32') {
+      this.log('尝试环境变量刷新后重试...', 'debug')
+      const retryResult = await this.retryWithEnvRefresh(installPath)
+      if (retryResult.success) {
+        this.log('重试验证成功', 'info')
+        return retryResult
+      }
+      issues.push(...retryResult.issues)
+    }
+
+    return { success: false, issues }
+  }
+
+  /**
+   * 绝对路径验证
+   */
+  private async verifyWithAbsolutePath(installPath: string): Promise<{
+    success: boolean
+    version?: string
+    executablePath?: string
+    issues: string[]
+  }> {
+    const issues: string[] = []
+
+    try {
+      // 构造Git可执行文件的绝对路径
+      let gitExecutable: string
+      if (this.platform === 'win32') {
+        gitExecutable = join(installPath, 'bin', 'git.exe')
+      } else {
+        gitExecutable = join(installPath, 'bin', 'git')
+      }
+
+      this.log(`检查绝对路径: ${gitExecutable}`, 'debug')
+
+      // 检查文件是否存在
+      try {
+        await fs.access(gitExecutable)
+      } catch {
+        issues.push(`Git可执行文件不存在: ${gitExecutable}`)
+        return { success: false, issues }
+      }
+
+      // 使用绝对路径执行版本检查
+      const versionResult = await this.executeCommand(gitExecutable, ['--version'])
+
+      if (versionResult.exitCode !== 0) {
+        issues.push(`绝对路径Git命令执行失败: ${versionResult.stderr}`)
+        return { success: false, issues }
+      }
+
+      // 解析版本信息
       const versionMatch = versionResult.stdout.match(/git version (\d+\.\d+\.\d+)/)
       const version = versionMatch ? versionMatch[1] : 'unknown'
 
-      // 3. 获取可执行文件路径
+      return {
+        success: true,
+        version,
+        executablePath: gitExecutable,
+        issues: []
+      }
+    } catch (error) {
+      issues.push(`绝对路径验证异常: ${error}`)
+      return { success: false, issues }
+    }
+  }
+
+  /**
+   * PATH环境变量验证
+   */
+  private async verifyWithPath(): Promise<{
+    success: boolean
+    version?: string
+    executablePath?: string
+    issues: string[]
+  }> {
+    const issues: string[] = []
+
+    try {
+      // 使用PATH中的git命令
+      const versionResult = await this.executeCommand('git', ['--version'])
+
+      if (versionResult.exitCode !== 0) {
+        issues.push(`PATH中的Git命令执行失败: ${versionResult.stderr}`)
+        return { success: false, issues }
+      }
+
+      // 解析版本信息
+      const versionMatch = versionResult.stdout.match(/git version (\d+\.\d+\.\d+)/)
+      const version = versionMatch ? versionMatch[1] : 'unknown'
+
+      // 获取可执行文件路径
       let executablePath: string | undefined
       try {
         const whichResult = await this.executeCommand(
@@ -508,35 +646,109 @@ export class GitInstallationManager extends BaseInstallationManager {
           ['git']
         )
         executablePath = whichResult.stdout.trim().split('\n')[0]
-      } catch (error) {
-        this.log('无法确定Git可执行文件路径', 'warning')
+      } catch {
+        // 无法获取路径但命令可以执行，仍算成功
+        executablePath = 'git' // 使用命令名作为后备
       }
 
-      // 4. 验证基本Git功能
-      const configResult = await this.executeCommand('git', ['config', '--list'])
+      return {
+        success: true,
+        version,
+        executablePath,
+        issues: []
+      }
+    } catch (error) {
+      issues.push(`PATH验证异常: ${error}`)
+      return { success: false, issues }
+    }
+  }
+
+  /**
+   * 环境变量刷新后重试（仅Windows）
+   */
+  private async retryWithEnvRefresh(installPath: string): Promise<{
+    success: boolean
+    version?: string
+    executablePath?: string
+    issues: string[]
+  }> {
+    const issues: string[] = []
+
+    try {
+      // 短暂等待让环境变量生效
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // 重新读取系统PATH
+      try {
+        const regResult = await this.executeCommand('reg', [
+          'query',
+          'HKEY_CURRENT_USER\\Environment',
+          '/v',
+          'PATH'
+        ])
+
+        if (regResult.exitCode === 0) {
+          // 解析注册表PATH值
+          const pathMatch = regResult.stdout.match(/PATH\s+REG_[A-Z_]+\s+(.+)$/)
+          if (pathMatch) {
+            const registryPath = pathMatch[1].trim()
+            // 展开环境变量
+            const expandedPath = registryPath.replace(/%([^%]+)%/g, (match, varName) => {
+              return process.env[varName] || match
+            })
+
+            // 更新当前进程的PATH
+            process.env.PATH = expandedPath
+            this.log('已刷新环境变量PATH', 'debug')
+          }
+        }
+      } catch (error) {
+        this.log(`读取注册表PATH失败: ${error}`, 'warning')
+      }
+
+      // 重试验证：先绝对路径，再PATH
+      const absoluteResult = await this.verifyWithAbsolutePath(installPath)
+      if (absoluteResult.success) {
+        return absoluteResult
+      }
+
+      // 如果绝对路径仍失败，尝试PATH验证
+      return await this.verifyWithPath()
+    } catch (error) {
+      issues.push(`重试验证异常: ${error}`)
+      return { success: false, issues }
+    }
+  }
+
+  /**
+   * 验证Git基本功能
+   */
+  private async verifyGitFunctionality(executablePath: string, issues: string[]): Promise<void> {
+    try {
+      // 1. 验证配置命令
+      const configResult = await this.executeCommand(executablePath, ['config', '--list'])
       if (configResult.exitCode !== 0) {
         issues.push('Git配置读取失败')
+        this.log(`Git配置读取失败: ${configResult.stderr}`, 'warning')
       }
 
-      // 5. 验证PATH配置
+      // 2. 验证帮助命令
+      const helpResult = await this.executeCommand(executablePath, ['help'])
+      if (helpResult.exitCode !== 0) {
+        issues.push('Git帮助命令失败')
+        this.log(`Git帮助命令失败: ${helpResult.stderr}`, 'warning')
+      }
+
+      // 3. Windows特殊验证：检查PATH配置
       if (this.platform === 'win32') {
         const pathCheck = await this.verifyWindowsPath()
         if (!pathCheck.valid) {
-          issues.push('Git未正确添加到PATH环境变量')
+          issues.push(`PATH配置问题: ${pathCheck.issues.join(', ')}`)
         }
       }
-
-      this.log(`验证成功，Git版本: ${version}`, 'info')
-
-      return {
-        valid: issues.length === 0,
-        version,
-        executablePath,
-        issues
-      }
     } catch (error) {
-      issues.push(`安装验证失败: ${error}`)
-      return { valid: false, issues }
+      issues.push(`Git功能验证失败: ${error}`)
+      this.log(`Git功能验证失败: ${error}`, 'warning')
     }
   }
 
@@ -632,42 +844,133 @@ export class GitInstallationManager extends BaseInstallationManager {
     try {
       const gitBinPath = join(installDir, 'bin')
 
-      // 检查PATH中是否already包含Git
-      const pathCheck = await this.executeCommand('echo', ['%PATH%'], {
-        env: process.env as Record<string, string>
-      })
-      const currentPath = pathCheck.stdout
+      // 检查当前进程PATH中是否已包含Git
+      const currentPath = process.env.PATH || ''
+      const pathEntries = currentPath.split(';').map((p) => p.trim())
 
-      if (currentPath.toLowerCase().includes(gitBinPath.toLowerCase())) {
+      // 检查是否已存在
+      const gitBinPathNormalized = gitBinPath.toLowerCase()
+      const alreadyInPath = pathEntries.some(
+        (entry) =>
+          entry.toLowerCase() === gitBinPathNormalized || entry.toLowerCase().includes('git\\bin')
+      )
+
+      if (alreadyInPath) {
         this.log('Git已在PATH环境变量中', 'info')
         return
       }
 
-      // 添加到用户PATH（推荐方式，避免需要管理员权限）
+      this.log(`准备添加到PATH: ${gitBinPath}`, 'debug')
+
+      // 1. 更新注册表中的用户PATH（持久化）
       const setxResult = await this.executeCommand('setx', ['PATH', `%PATH%;${gitBinPath}`])
 
-      if (setxResult.exitCode === 0) {
-        this.log('Git已添加到PATH环境变量', 'info')
+      if (setxResult.exitCode !== 0) {
+        this.log(`setx命令失败: ${setxResult.stderr}`, 'warning')
       } else {
-        this.log('PATH环境变量更新失败，可能需要手动添加', 'warning')
+        this.log('注册表PATH已更新', 'debug')
+      }
+
+      // 2. 同步更新当前进程的PATH环境变量（立即生效）
+      const newPath = `${currentPath};${gitBinPath}`
+      process.env.PATH = newPath
+      this.log('当前进程PATH已同步更新', 'info')
+
+      // 3. 验证PATH更新是否成功
+      const verifyResult = await this.verifyPathUpdate(gitBinPath)
+      if (verifyResult.success) {
+        this.log(`PATH更新成功: ${verifyResult.detectedPath}`, 'info')
+      } else {
+        this.log(`PATH更新验证失败: ${verifyResult.error}`, 'warning')
       }
     } catch (error) {
-      this.log(`PATH环境变量更新失败: ${error}`, 'warning')
+      this.log(`PATH环境变量更新失败: ${error}`, 'error')
     }
   }
 
   /**
-   * 验证Windows PATH配置
+   * 验证PATH更新是否成功
+   */
+  private async verifyPathUpdate(expectedPath: string): Promise<{
+    success: boolean
+    detectedPath?: string
+    error?: string
+  }> {
+    try {
+      // 使用where命令查找git.exe
+      const whereResult = await this.executeCommand('where', ['git'])
+
+      if (whereResult.exitCode === 0) {
+        const detectedPath = whereResult.stdout.trim().split('\n')[0]
+        const expectedGitExe = join(expectedPath, 'git.exe')
+
+        // 检查检测到的路径是否匹配预期
+        if (detectedPath.toLowerCase() === expectedGitExe.toLowerCase()) {
+          return { success: true, detectedPath }
+        } else {
+          return {
+            success: true, // 找到了git但路径不同
+            detectedPath,
+            error: `检测到不同的Git安装: ${detectedPath}`
+          }
+        }
+      } else {
+        return {
+          success: false,
+          error: `where命令失败: ${whereResult.stderr}`
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `PATH验证异常: ${error}`
+      }
+    }
+  }
+
+  /**
+   * 验证Windows PATH配置（增强版）
    */
   private async verifyWindowsPath(): Promise<{ valid: boolean; issues: string[] }> {
     const issues: string[] = []
+    const diagnostics: string[] = []
 
     try {
-      // 检查git命令是否可以直接执行
-      const result = await this.executeCommand('git', ['--version'])
+      // 1. 分析当前进程PATH
+      const processPathResult = await this.analyzeProcessPath()
+      diagnostics.push(`当前进程PATH状态: ${processPathResult.summary}`)
+      if (processPathResult.issues.length > 0) {
+        issues.push(...processPathResult.issues.map((issue) => `进程PATH: ${issue}`))
+      }
 
-      if (result.exitCode !== 0) {
-        issues.push('Git命令无法在命令行中直接执行')
+      // 2. 分析注册表PATH
+      const registryPathResult = await this.analyzeRegistryPath()
+      diagnostics.push(`注册表PATH状态: ${registryPathResult.summary}`)
+      if (registryPathResult.issues.length > 0) {
+        issues.push(...registryPathResult.issues.map((issue) => `注册表PATH: ${issue}`))
+      }
+
+      // 3. 检查Git命令可用性
+      const gitCommandResult = await this.checkGitCommandAvailability()
+      diagnostics.push(`Git命令可用性: ${gitCommandResult.summary}`)
+      if (gitCommandResult.issues.length > 0) {
+        issues.push(...gitCommandResult.issues)
+      }
+
+      // 4. 检查PATH一致性
+      if (processPathResult.gitPaths.length !== registryPathResult.gitPaths.length) {
+        issues.push('进程PATH与注册表PATH不一致，可能需要重启应用程序')
+      }
+
+      // 5. 记录诊断信息
+      for (const diagnostic of diagnostics) {
+        this.log(diagnostic, 'debug')
+      }
+
+      // 6. 提供修复建议
+      if (issues.length > 0) {
+        const suggestions = this.generatePathFixSuggestions(processPathResult, registryPathResult)
+        issues.push('修复建议:', ...suggestions)
       }
 
       return {
@@ -675,8 +978,203 @@ export class GitInstallationManager extends BaseInstallationManager {
         issues
       }
     } catch (error) {
-      issues.push(`PATH验证失败: ${error}`)
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      issues.push(`PATH验证异常: ${errorMsg}`)
+      this.log(`PATH验证异常: ${errorMsg}`, 'error')
       return { valid: false, issues }
     }
+  }
+
+  /**
+   * 分析当前进程PATH
+   */
+  private async analyzeProcessPath(): Promise<{
+    gitPaths: string[]
+    allPaths: string[]
+    issues: string[]
+    summary: string
+  }> {
+    const issues: string[] = []
+    const currentPath = process.env.PATH || ''
+    const allPaths = currentPath
+      .split(';')
+      .filter(Boolean)
+      .map((p) => p.trim())
+
+    // 查找Git相关路径
+    const gitPaths = allPaths.filter(
+      (path) => path.toLowerCase().includes('git') && path.toLowerCase().includes('bin')
+    )
+
+    let summary = `共${allPaths.length}个路径条目`
+    if (gitPaths.length > 0) {
+      summary += `, ${gitPaths.length}个Git相关路径`
+    } else {
+      summary += ', 无Git路径'
+      issues.push('PATH中未找到Git相关路径')
+    }
+
+    // 检查重复路径
+    const pathCounts = new Map<string, number>()
+    for (const path of allPaths) {
+      const normalizedPath = path.toLowerCase()
+      pathCounts.set(normalizedPath, (pathCounts.get(normalizedPath) || 0) + 1)
+    }
+
+    const duplicates = Array.from(pathCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([path]) => path)
+
+    if (duplicates.length > 0) {
+      issues.push(`发现重复PATH条目: ${duplicates.join(', ')}`)
+    }
+
+    return { gitPaths, allPaths, issues, summary }
+  }
+
+  /**
+   * 分析注册表PATH
+   */
+  private async analyzeRegistryPath(): Promise<{
+    gitPaths: string[]
+    allPaths: string[]
+    issues: string[]
+    summary: string
+  }> {
+    const issues: string[] = []
+    let allPaths: string[] = []
+    let gitPaths: string[] = []
+
+    try {
+      // 读取用户PATH
+      const userResult = await this.executeCommand('reg', [
+        'query',
+        'HKEY_CURRENT_USER\\Environment',
+        '/v',
+        'PATH'
+      ])
+
+      if (userResult.exitCode === 0) {
+        const pathMatch = userResult.stdout.match(/PATH\s+REG_[A-Z_]+\s+(.+)$/m)
+        if (pathMatch) {
+          const rawPath = pathMatch[1].trim()
+          // 简单的环境变量展开
+          const expandedPath = rawPath.replace(/%([^%]+)%/g, (match, varName) => {
+            return process.env[varName] || match
+          })
+
+          allPaths = expandedPath
+            .split(';')
+            .filter(Boolean)
+            .map((p) => p.trim())
+          gitPaths = allPaths.filter(
+            (path) => path.toLowerCase().includes('git') && path.toLowerCase().includes('bin')
+          )
+        }
+      } else {
+        issues.push('无法读取用户注册表PATH')
+      }
+    } catch (error) {
+      issues.push(`读取注册表失败: ${error}`)
+    }
+
+    let summary = `用户注册表PATH: ${allPaths.length}个条目`
+    if (gitPaths.length > 0) {
+      summary += `, ${gitPaths.length}个Git路径`
+    } else {
+      summary += ', 无Git路径'
+      if (allPaths.length > 0) {
+        issues.push('注册表PATH中未包含Git路径')
+      }
+    }
+
+    return { gitPaths, allPaths, issues, summary }
+  }
+
+  /**
+   * 检查Git命令可用性
+   */
+  private async checkGitCommandAvailability(): Promise<{
+    available: boolean
+    issues: string[]
+    summary: string
+  }> {
+    const issues: string[] = []
+
+    try {
+      // 测试git --version命令
+      const versionResult = await this.executeCommand('git', ['--version'])
+
+      if (versionResult.exitCode === 0) {
+        // 测试where git命令
+        const whereResult = await this.executeCommand('where', ['git'])
+
+        if (whereResult.exitCode === 0) {
+          const gitPath = whereResult.stdout.trim().split('\n')[0]
+          return {
+            available: true,
+            issues: [],
+            summary: `可用，路径: ${gitPath}`
+          }
+        } else {
+          issues.push('git命令可执行但where命令失败')
+          return {
+            available: true,
+            issues,
+            summary: 'git命令可用但路径查找失败'
+          }
+        }
+      } else {
+        issues.push('git命令执行失败')
+        return {
+          available: false,
+          issues,
+          summary: `不可用: ${versionResult.stderr || '命令执行失败'}`
+        }
+      }
+    } catch (error) {
+      issues.push(`Git命令测试异常: ${error}`)
+      return {
+        available: false,
+        issues,
+        summary: `检查异常: ${error}`
+      }
+    }
+  }
+
+  /**
+   * 生成PATH修复建议
+   */
+  private generatePathFixSuggestions(
+    processPath: { gitPaths: string[]; allPaths: string[] },
+    registryPath: { gitPaths: string[]; allPaths: string[] }
+  ): string[] {
+    const suggestions: string[] = []
+
+    // 1. 如果两者都没有Git路径
+    if (processPath.gitPaths.length === 0 && registryPath.gitPaths.length === 0) {
+      suggestions.push('手动添加Git到PATH: 控制面板 → 系统 → 高级系统设置 → 环境变量')
+      suggestions.push('或重新安装Git for Windows并选择"添加到PATH"选项')
+    }
+
+    // 2. 如果注册表有Git路径但进程PATH没有
+    else if (registryPath.gitPaths.length > 0 && processPath.gitPaths.length === 0) {
+      suggestions.push('PATH已在注册表中设置，请重启应用程序使其生效')
+      suggestions.push('或在当前会话中手动刷新环境变量')
+    }
+
+    // 3. 如果进程PATH有Git路径但注册表没有
+    else if (processPath.gitPaths.length > 0 && registryPath.gitPaths.length === 0) {
+      suggestions.push('Git路径仅在当前会话中有效，重启后将丢失')
+      suggestions.push('请将Git路径永久添加到用户或系统PATH环境变量')
+    }
+
+    // 4. 检查路径冲突
+    if (processPath.gitPaths.length > 1) {
+      suggestions.push(`检测到多个Git路径: ${processPath.gitPaths.join(', ')}`)
+      suggestions.push('请移除重复的Git路径以避免冲突')
+    }
+
+    return suggestions
   }
 }
