@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import type {
   SetupWizardState,
   ApiConfiguration,
@@ -104,6 +104,9 @@ export function useSetupWizardState(
   const [state, setState] = useState<SetupWizardState>(initialState)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<SetupWizardError | null>(null)
+
+  // 使用 ref 追踪是否已加载状态，防止重复初始化
+  const hasLoadedRef = useRef(false)
 
   // 步骤导航逻辑
   const canGoNext = useMemo(() => {
@@ -272,12 +275,15 @@ export function useSetupWizardState(
         }
       }))
 
-      // 如果清除的是当前错误，也清除全局错误
-      if (error && error.step === step) {
-        setError(null)
-      }
+      // 使用函数式更新，避免依赖 error 状态
+      setError((prevError) => {
+        if (prevError && prevError.step === step) {
+          return null
+        }
+        return prevError
+      })
     },
-    [error]
+    [] // 移除 [error] 依赖，避免循环依赖
   )
 
   // 配置变更检测
@@ -392,10 +398,13 @@ export function useSetupWizardState(
     }
   }, [state.currentStep])
 
-  // 初始化时加载状态
+  // 初始化时加载状态（只执行一次）
   useEffect(() => {
-    loadState()
-  }, [loadState])
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      loadState()
+    }
+  }, []) // 移除 loadState 依赖，防止重复加载
 
   return {
     // State

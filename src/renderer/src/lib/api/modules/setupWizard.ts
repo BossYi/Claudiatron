@@ -1,4 +1,5 @@
 import { ApiClient } from '../utils/apiClient'
+import presetRepositories from '@/assets/preset-repositories.json'
 
 export class SetupWizardApi extends ApiClient {
   /**
@@ -197,24 +198,10 @@ export class SetupWizardApi extends ApiClient {
     error?: string
   }> {
     return this.handleApiCall(async () => {
-      // 从 public 或者使用 fetch 加载配置文件
-      try {
-        const response = await fetch('/config/preset-repositories.json')
-        if (!response.ok) {
-          throw new Error('Failed to fetch preset repository config')
-        }
-        const config = await response.json()
-        return {
-          success: true,
-          data: config
-        }
-      } catch (error) {
-        console.warn('Failed to load preset repository config from /config/, using fallback data')
-        const defaultConfig = {}
-        return {
-          success: true,
-          data: defaultConfig
-        }
+      // 直接返回导入的配置数据
+      return {
+        success: true,
+        data: presetRepositories
       }
     }, 'Failed to load preset repository configuration')
   }

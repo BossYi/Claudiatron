@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -42,7 +42,7 @@ interface ExtendedSoftwareStatus {
   key: 'git' | 'nodejs' | 'npm' | 'claudeCli'
   installed: boolean
   version?: string
-  path?: string
+path?: string
   error?: string
   checking: boolean
   installing: boolean
@@ -66,6 +66,10 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
   const [detecting, setDetecting] = useState(false)
   const [autoInstalling, setAutoInstalling] = useState(false)
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
+
+  // 添加 ref 来追踪检测状态，防止并发和重复初始化
+  const hasInitialDetectionRef = useRef(false)
+  const detectingRef = useRef(false)
   const [softwareStatus, setSoftwareStatus] = useState<ExtendedSoftwareStatus[]>([
     {
       name: 'Git',
@@ -107,6 +111,13 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
 
   // 检测环境
   const detectEnvironment = useCallback(async () => {
+    // 防止并发调用
+    if (detectingRef.current) {
+      console.log('检测已在进行中，跳过重复调用')
+      return
+    }
+
+    detectingRef.current = true
     setDetecting(true)
     onClearError(WizardStep.ENVIRONMENT_DETECTION)
 
@@ -175,14 +186,18 @@ export const EnvironmentDetectionStep: React.FC<EnvironmentDetectionStepProps> =
         prev.map((item) => ({ ...item, checking: false, error: '检测失败' }))
       )
     } finally {
+      detectingRef.current = false
       setDetecting(false)
     }
   }, [onComplete, onError, onClearError, updateEnvironmentStatus])
 
-  // 组件挂载时自动检测
+  // 组件挂载时自动检测（只执行一次）
   useEffect(() => {
-    detectEnvironment()
-  }, [detectEnvironment])
+    if (!hasInitialDetectionRef.current) {
+      hasInitialDetectionRef.current = true
+      detectEnvironment()
+    }
+  }, []) // 移除 detectEnvironment 依赖，只在初始化时执行一次
 
   // 监听安装进度事件
   useEffect(() => {

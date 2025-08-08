@@ -189,7 +189,7 @@ export const RepositoryImportStep: React.FC<RepositoryImportStepProps> = ({
                 <div className="flex-1 overflow-y-auto overflow-x-hidden">
                   {authManagement.showTeamSelection ? (
                     <TeamSelectionPanel
-                      teams={authManagement.presetConfig.businessTeams}
+                      teams={authManagement.presetConfig?.businessTeams || []}
                       onSelectTeam={authManagement.selectTeam}
                     />
                   ) : authManagement.selectedTeam ? (
